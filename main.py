@@ -6,6 +6,7 @@ import logging
 import os
 import sys
 import random
+from asyncio import CancelledError
 
 # aiogram
 from aiogram import Bot, Dispatcher, F
@@ -680,8 +681,11 @@ async def game_loop(chat_id: int):
 
 # Функция, которая вызывается при запуске бота
 async def init():
-    await bot(DeleteWebhook(drop_pending_updates=True))
-    await dp.start_polling(bot)
+    try:
+        await bot(DeleteWebhook(drop_pending_updates=True))
+        await dp.start_polling(bot)
+    except CancelledError:
+        print("Остановка.")
 
 # Запуск бота
 if __name__ == "__main__":
