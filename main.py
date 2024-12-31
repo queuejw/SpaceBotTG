@@ -139,7 +139,6 @@ def save_chat_state(chat_id: int, state: dict):
 
     state_file = get_chat_state_file(chat_id)
     with open(state_file, "w", encoding="utf-8") as f:
-        # Здесь IDE ругается что Expected type 'SupportsWrite[str]', got 'TextIO' instead, игнорируй это вроде как баг.
         f.write(json.dumps(state))
         print("Записаны новые данные")
 
