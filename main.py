@@ -26,15 +26,21 @@ def get_token() -> str:
             result = f.read()
             f.close()
             return result
-    # Если не получится, то вернёт пустой текст
-    return ""
+    # Если не получится, то останавливаем
+    print("Токен не найден. Остановка.")
+    exit(1)
 
 # Функция для получения списка планет
 def get_planets():
-    with open('planets.txt', 'r', encoding='utf-8') as file:
-        planets_from_file = [line.strip() for line in file.readlines()]
-        file.close()
-        return planets_from_file
+    pl_file = "planets.txt"
+    if os.path.exists(pl_file):
+        with open(pl_file, 'r', encoding='utf-8') as file:
+            planets_from_file = [line.strip() for line in file.readlines()]
+            file.close()
+            return planets_from_file
+    # Если не получится, то останавливаем
+    print("Планеты не найдены. Остановка.")
+    exit(1)
 
 # Планеты
 PLANETS = get_planets()
@@ -156,6 +162,10 @@ def create_new_ship(chat_id: int):
     print(f"Создаю корабль для чата {chat_id}")
     all_ships[chat_id] = load_chat_state(chat_id)
     save_chat_state(chat_id, all_ships[chat_id])
+
+# Ограничивает значение в пределах минимального и максимального.
+def clamp(value, min_value, max_value):
+    return max(min_value, min(max_value, value))
 
 # Функция, которая вызывается командой /start
 @dp.message(CommandStart())
@@ -566,33 +576,27 @@ async def self_destruction_callback(callback: CallbackQuery):
     if callback.data == "self_destruction_cancel":
         print("Отмена самоуничтожения")
         await bot.answer_callback_query(callback.id, text="Отмена самоуничтожения")
-        await bot.delete_message(callback.message.chat.id, callback.message.message_id)
+        try:
+            await bot.delete_message(callback.message.chat.id, callback.message.message_id)
+        except TelegramBadRequest:
+            print("Не получилось удалить сообщение.")
+
     elif callback.data == "self_destruction_continue":
         print(f"Начинаем самоуничтожение в чате {chat_id}")
         await bot.answer_callback_query(callback.id, text="САМОУНИЧТОЖЕНИЕ")
-        await bot.delete_message(callback.message.chat.id, callback.message.message_id)
+        try:
+            await bot.delete_message(callback.message.chat.id, callback.message.message_id)
+        except TelegramBadRequest:
+            print("Не получилось удалить сообщение.")
         await self_destruction_func(callback.message.chat.id)
     await callback.answer()
 
 #Костыль для перепроверки данных и их обновления
 def check_and_save_data(state: dict, chat_id: int):
-    if state["ship_fuel"] < 1:
-        state["ship_fuel"] = 0
-    if state["ship_health"] < 1:
-        state["ship_health"] = 0
-    if state["crew_health"] < 1:
-        state["crew_health"] = 0
-    if state["crew_oxygen"] < 1:
-        state["crew_oxygen"] = 0
-
-    if state["ship_fuel"] > 100:
-        state["ship_fuel"] = 100
-    if state["ship_health"] > 100:
-        state["ship_health"] = 100
-    if state["crew_health"] > 100:
-        state["crew_health"] = 100
-    if state["crew_oxygen"] > 100:
-        state["crew_oxygen"] = 100
+    state["ship_fuel"] = clamp(state["ship_fuel"], 0, 100)
+    state["ship_health"] = clamp(state["ship_health"], 0, 100)
+    state["crew_health"] = clamp(state["crew_health"], 0, 100)
+    state["crew_oxygen"] = clamp(state["crew_oxygen"], 0, 100)
 
     save_chat_state(chat_id, state)
 
