@@ -631,12 +631,12 @@ async def game_loop_events(chat_id: int):
                 await bot.send_message(chat_id,f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {state["ship_health"]}%")
         else:
             # события в космосе
-            if random.random() < 0.15:
+            if random.random() < 0.05:
                 # Космический мусор
                 value = random.randint(1, 8)
                 state["ship_health"] -= value
                 await bot.send_message(chat_id, f"Мы столкнулись с космическим мусором!\nПрочность корабля: {state["ship_health"]}%")
-            if random.random() < 0.2:
+            if random.random() < 0.05:
                 # Космическая аномалия
                 state["next_planet_name"] = random.choice(PLANETS)
                 await bot.send_message(chat_id, f"Космическая аномалия!\nМы сбились с курса")
