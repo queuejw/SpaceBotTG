@@ -12,7 +12,7 @@ from asyncio import CancelledError
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.methods import DeleteWebhook
 from aiogram.types import Message, ChatMemberUpdated, InlineKeyboardButton, CallbackQuery
@@ -187,7 +187,7 @@ async def info(message: Message):
     text = (
         "открытый космос - игровой бот для вашего чата.👽\n"
         "находится в разработке, не все функции работают правильно.\n"
-        "последнее обновление: 31.12.24\n"
+        "последнее обновление: 26.03.25\n"
         "сделал @queuejw"
     )
     await message.answer(text)
@@ -508,7 +508,9 @@ async def update_computer_text(callback: CallbackQuery):
                                         reply_markup=get_computer_inline_keyboard())
             print(f"Текст компьютера в чате {chat_id} успешно обновлен")
         except TelegramBadRequest:
-            print("Ошибка при изменении сообщения компьютера")
+            print("Ошибка при изменении сообщения компьютера: TelegramBadRequest")
+        except TelegramRetryAfter:
+            print("Ошибка при изменении сообщения компьютера: TelegramRetryAfter")
     else:
         print(f"Текст компьютера в чате {chat_id} совпадает с прошлым")
         await callback.answer("Уже обновлено.")
@@ -546,10 +548,12 @@ async def fire_callback(callback: CallbackQuery):
     print("Обработка тушения пожара")
     chat_id = callback.message.chat.id
     if not is_chat_active(chat_id):
+        print("Игра не активна")
         await callback.answer()
         return
     state = load_chat_state(chat_id)
     if not state["fire"]:
+        print("Корабль не горит")
         await callback.answer("Корабль не горит.")
         return
     if state["blocked"]:
@@ -571,6 +575,7 @@ async def self_destruction_callback(callback: CallbackQuery):
     print("Обработка самоуничтожения")
     chat_id = callback.message.chat.id
     if not is_chat_active(chat_id):
+        print("Игра не активна")
         await callback.answer()
         return
     if callback.data == "self_destruction_cancel":
@@ -650,28 +655,54 @@ async def game_loop_events(chat_id: int):
         check_and_save_data(state, chat_id)
         await asyncio.sleep(30)
 
+# Основной цикл игры
 async def game_loop(chat_id: int):
+    warned_of_air_leak = False
+    warned_of_empty_air = False
+    warned_of_empty_fuel = False
     while is_chat_active(chat_id):
         # Получаю данные корабля
         state = load_chat_state(chat_id)
         if state["ship_fuel"] < 1:
-            state["ship_speed"] = random.randint(0, 700)
+            if not warned_of_empty_fuel:
+                await bot.send_message(chat_id, "⚠️ Закончилось топливо.")
+                warned_of_empty_fuel = True
+            state["ship_speed"] = random.randint(0, 900)
             state["distance"] += round(state["ship_speed"] / 60)
         else:
             # Изменяем скорость корабля и пройденный путь
             state["ship_speed"] = random.randint(28000, 64000)
             state["distance"] += round(state["ship_speed"] / 60)
+
+            if warned_of_empty_fuel:
+                warned_of_empty_fuel = False
+
             if random.random() < 0.05 and not state["on_planet"]:
                 # Уменьшаем количество топлива
                 state["ship_fuel"] -= 1
 
         # уменьшаем воздух если здоровье корабля меньше 1 (0)
         if state["ship_health"] < 1:
+            if not warned_of_air_leak:
+                await bot.send_message(chat_id, "⚠️ Корпус разрушен, утечка воздуха. Требуется ремонт.")
+                warned_of_air_leak = True
+
             state["crew_oxygen"] -= random.randint(1, 10)
+        else:
+            if warned_of_air_leak:
+                warned_of_air_leak = False
 
         # уменьшаем здоровье если нет воздуха
         if state["crew_oxygen"] < 1:
+            if not warned_of_empty_air:
+                await bot.send_message(chat_id, "⚠️ Закончился воздух. Требуется ремонт.")
+                warned_of_empty_air = True
+
             state["crew_health"] -= random.randint(1, 10)
+        else:
+            if warned_of_empty_air:
+                warned_of_empty_air = False
+
 
         # завершаем игру если здоровье экипажа меньше 1 (0)
         if state["crew_health"] < 1:
@@ -682,6 +713,7 @@ async def game_loop(chat_id: int):
         check_and_save_data(state, chat_id)
         # Ожидаем 5 секунд перед началом следующей итерации
         await asyncio.sleep(5)
+    await bot.send_message(chat_id, "Конец.")
 
 # Функция, которая вызывается при запуске бота
 async def init():
