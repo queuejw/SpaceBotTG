@@ -202,7 +202,7 @@ async def info(message: Message):
     text = (
         "открытый космос - игровой бот для вашего чата.👽\n"
         "находится в разработке, не все функции работают правильно.\n"
-        "последнее обновление: 26.03.25\n"
+        "последнее обновление: 30.03.25\n"
         "сделал @queuejw"
     )
     await message.answer(text)
@@ -462,6 +462,7 @@ async def handle_chat_rocket_message(chat_member: ChatMemberUpdated):
         delete_chat_state(chat_member.chat.id)
 
 
+# Команда самоуничтожения
 @dp.message(Command("самоуничтожение"))
 async def self_destruction_command(message: Message):
     chat_id = message.chat.id
@@ -472,6 +473,7 @@ async def self_destruction_command(message: Message):
                          reply_markup=get_self_destruction_inline_keyboard())
 
 
+# Выстрел
 @dp.message(Command("выстрел"))
 async def shot_command(message: Message):
     chat_id = message.chat.id
@@ -494,16 +496,8 @@ def get_random_chat_id(my_chat_id: int):
         return int(r_chat_id)
 
 
-# Команда для связи с другими кораблями
-@dp.message(Command("связь"))
-async def connect_to_other_ship(message: Message, command: CommandObject):
-    chat_id = message.chat.id
-    if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
-        return
-    if is_actions_blocked(chat_id):
-        await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
-        return
+# Соединение с кораблем
+async def connect(chat_id: int, message: Message, command: CommandObject):
     try:
         args = command.args
         state = load_chat_state(chat_id)
@@ -516,7 +510,8 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
                     await bot.send_message(chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
                     return
                 if not is_chat_active(random_chat_id):
-                    await bot.send_message(chat_id, f"Не удалось соединиться с кораблём. Попробуйте ещё раз.")
+                    print("чат не активен, попытка соединиться ещё раз")
+                    await connect(chat_id, message, command)
                     return
                 # Сохраняем чаты
                 random_state = load_chat_state(random_chat_id)
@@ -556,7 +551,8 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
         else:
             # Ищем корабль по названию или chat id (не придумал). пока что здесь предупреждение игрокам TODO: надо бы доделать это
             if state['connected_chat'] == 'null':
-                await bot.send_message(chat_id, "Чтобы отправить сообщение, нужно подключиться к какому-то кораблю. Для этого введите /связь")
+                await bot.send_message(chat_id,
+                                       "Чтобы отправить сообщение, нужно подключиться к какому-то кораблю. Для этого введите /связь")
             # или передаем сообщения
             else:
                 connected_chat_id = int(state['connected_chat'])
@@ -580,6 +576,19 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
 
     except ValueError:
         await message.answer("Не удалось связаться с кораблём.\nПри передаче данных связь была потеряна⚠️")
+
+
+# Команда для связи с другими кораблями
+@dp.message(Command("связь"))
+async def connect_to_other_ship(message: Message, command: CommandObject):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        return
+    if is_actions_blocked(chat_id):
+        await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
+        return
+    await connect(chat_id, message, command)
 
 
 @dp.message(Command("!связь"))
@@ -664,15 +673,15 @@ async def fire_func(chat_id: int):
             break
 
         if random.random() > 0.2:
-            state["ship_fuel"] -= random.randint(5, 12)
+            state["ship_fuel"] -= random.randint(5, 10)
         if random.random() > 0.25:
-            state["resources"] -= random.randint(5, 12)
+            state["resources"] -= random.randint(5, 10)
         if random.random() > 0.25:
             state["ship_health"] -= random.randint(5, 10)
         if random.random() > 0.25:
-            state["crew_health"] -= random.randint(2, 8)
+            state["crew_health"] -= random.randint(2, 5)
         if random.random() > 0.25:
-            state["crew_oxygen"] -= random.randint(2, 8)
+            state["crew_oxygen"] -= random.randint(2, 5)
 
         check_and_save_data(state, chat_id)
 
@@ -780,13 +789,13 @@ async def game_loop_events(chat_id: int):
                                        f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {state["ship_health"]}%")
         else:
             # события в космосе
-            if random.random() < 0.05:
+            if random.random() < 0.03:
                 # Космический мусор
                 value = random.randint(1, 8)
                 state["ship_health"] -= value
                 await bot.send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {state["ship_health"]}%")
-            if random.random() < 0.05:
+            if random.random() < 0.03:
                 # Космическая аномалия
                 state["next_planet_name"] = random.choice(PLANETS)
                 await bot.send_message(chat_id, f"Космическая аномалия!\nМы сбились с курса")
