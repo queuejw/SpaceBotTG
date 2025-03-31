@@ -132,14 +132,10 @@ def delete_chat_state(chat_id: int):
         os.remove(state_file)
         print(f"Корабль чата {chat_id} удален")
 
-def is_save_exists(chat_id: int) -> bool:
-    return os.path.exists(get_chat_state_file(chat_id))
 
 # Функция для загрузки корабля
 def load_chat_state(chat_id: int) -> dict:
-    print(f"Получаю корабль чата {chat_id}")
     state_file = get_chat_state_file(chat_id)
-    print(state_file)
 
     if os.path.exists(state_file):
         with open(state_file, "r") as f:
@@ -208,13 +204,6 @@ async def info(message: Message):
         "сделал @queuejw"
     )
     await message.answer(text)
-
-@dp.message(Command("семена"))
-async def info(message: Message):
-    print("меняю")
-    print(all_ships.get(message.chat.id)["ship_name"])
-    all_ships.get(message.chat.id)["ship_name"] = "СЕМЕНА БРАТУХА"
-    print(all_ships.get(message.chat.id)["ship_name"])
 
 
 # Функция для получения текста сообщения компьютера
