@@ -69,6 +69,7 @@ github_link = "https://github.com/queuejw/SpaceBotTG"
 # Стандартные параметры корабля
 def get_default_ship() -> dict:
     return {
+        'default': True,  # Стандартный ли это корабль?
         'active': False,  # Активна ли игра?
         'blocked': False,  # Заблокированы ли действия игроков?
         'on_planet': False,  # Находится ли корабль на планете?
@@ -85,7 +86,8 @@ def get_default_ship() -> dict:
         'crew_health': 100,  # Здоровье экипажа (от 0 до 100)
         'crew_oxygen': 100,  # Уровень воздуха (от 0 до 100)
         'resources': 500,  # Количество ресурсов
-        'connected_chat': 'null'
+        'connected_chat': 'null',  # Id чата, с которым в данный момент идёт связь. Если null, значит связи нет.
+        'alien_attack': False  # Атакуют ли пришельцы?
     }
 
 
@@ -169,10 +171,21 @@ def is_actions_blocked(chat_id: int):
     return all_ships[chat_id]['blocked']
 
 
+# Уведомляем пользователей о том, что было загружено сохранение
+async def notify_players(chat_id: int, loaded_state: dict):
+    # Уведомляем, что загружено сохранение.
+    if not loaded_state['default']:
+        await bot.send_message(chat_id, "Загружено последнее сохранение. ☀️")
+    else:
+        loaded_state['default'] = False
+
+
 # Функция для создания нового корабля в чате
 def create_new_ship(chat_id: int):
     print(f"Создаю корабль для чата {chat_id}")
-    all_ships[chat_id] = load_chat_state(chat_id)
+    loaded_state = load_chat_state(chat_id)
+    asyncio.create_task(notify_players(chat_id, loaded_state))
+    all_ships[chat_id] = loaded_state
     save_chat_state(chat_id, all_ships[chat_id])
 
 
@@ -202,7 +215,7 @@ async def info(message: Message):
     text = (
         "открытый космос - игровой бот для вашего чата.👽\n"
         "находится в разработке, не все функции работают правильно.\n"
-        "последнее обновление: 30.03.25\n"
+        "последнее обновление: 05.04.25\n"
         "сделал @queuejw\n"
         f"исходный код бота: {github_link}"
     )
@@ -252,11 +265,12 @@ def get_computer_text(chat_id: int) -> str:
 
 
 # Выводит информацию о корабле чата
-@dp.message(Command("компьютер"))
+@dp.message(Command("компьютер", "к"))
 async def computer(message: Message):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не удалось получить информацию о корабле:\nНет соединения. ⚠️")
+        await message.answer(
+            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     text = get_computer_text(chat_id)
     await message.answer(text, reply_markup=get_computer_inline_keyboard())
@@ -268,15 +282,16 @@ async def commands(message: Message):
     text = (
         "Команды бортового компьютера:\n"
         "\n"
-        "/компьютер - информация о корабле\n"
+        "/компьютер (или /к) - информация о корабле\n"
         "/лететь [планета] - лететь на указанную планету. Если не указать, то будет выбрана следующая планета\n"
         "/покинуть - покинуть планету\n"
         "/ремонт - немного лечит экипаж и немного увеличивает прочность корабля, а также исправляет утечки воздуха. Требуется 50 ресурсов.\n"
+        "/выстрел - выстрел из орудий. работает при атаке пришельцев"
         "\n"
         "/самоуничтожение - закончить игру (потребуется подтвердить своё решение).\n"
         "/название [название] - изменить название корабля (не более 18 символов).\n"
-        "/связь [сообщение] - устанавливает связь между кораблями. Оставьте [название] пустым, чтобы подключиться к случайному кораблю. после подключения [название] используется для передачи сообщений.\n"
-        "/!связь - отключает связь с другим кораблем\n"
+        "/связь (или /с) [сообщение] - устанавливает связь между кораблями. Оставьте [название] пустым, чтобы подключиться к случайному кораблю. после подключения [название] используется для передачи сообщений.\n"
+        "/!связь (или /!с) - отключает связь с другим кораблем\n"
         "\n"
         "Путешествуйте по планетам, чтобы собирать ресурсы. С помощью ресурсов вы сможете ремонтировать корабль, тушить пожары и выполнять многие действия."
     )
@@ -307,7 +322,8 @@ async def play(message: Message):
 async def change_ship_name(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
@@ -358,7 +374,8 @@ async def fly(chat_id: int, planet_name: str):
 async def fly_command(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
@@ -403,7 +420,8 @@ async def leave_planet(chat_id: int):
 async def leave_planet_command(message: Message):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
@@ -467,14 +485,29 @@ async def self_destruction_command(message: Message):
                          reply_markup=get_self_destruction_inline_keyboard())
 
 
+# Случайный текст для неудачного выстрела
+def random_bad_shot_text() -> str:
+    variants = ["Мимо!", "Промах!", "Не попал!", "Рикошет!", "Не пробил!"]
+    return random.choice(variants)
+
+
 # Выстрел
 @dp.message(Command("выстрел"))
 async def shot_command(message: Message):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
-    await message.answer("не")
+    if not all_ships[chat_id]['alien_attack']:
+        await message.answer("Нельзя стрелять, когда нет опасностей ⚠️")
+        return
+    # Симуляция выстрела
+    if random.random() < 0.5:
+        await message.answer(f"{random_bad_shot_text()} ⚠️")
+    else:
+        all_ships[chat_id]['alien_attack'] = False
+        await message.answer("Успешный выстрел! ✅\nПришельцы уничтожены.")
 
 
 # Функция для получения случайного chat id
@@ -563,11 +596,12 @@ async def connect(chat_id: int, message: Message, command: CommandObject):
 
 
 # Команда для связи с другими кораблями
-@dp.message(Command("связь"))
+@dp.message(Command("связь", "с"))
 async def connect_to_other_ship(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
@@ -575,11 +609,12 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
     await connect(chat_id, message, command)
 
 
-@dp.message(Command("!связь"))
+@dp.message(Command("!связь", "!с"))
 async def disconnect_from_other_ship(message: Message):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
@@ -647,6 +682,8 @@ async def fire_func(chat_id: int):
     await bot.send_message(chat_id, "🔥")
     await bot.send_message(chat_id, "🔥Корабль горит!🔥", reply_markup=get_fire_inline_keyboard())
     while True:
+        if not is_chat_active(chat_id):
+            break
         if not all_ships[chat_id]["fire"]:
             break
 
@@ -685,7 +722,7 @@ async def fire_callback(callback: CallbackQuery):
     await callback.answer("Тушим корабль ...")
     all_ships[chat_id]["blocked"] = True
     await bot.send_message(chat_id, "Тушим корабль ... 🧯")
-    for _ in range(5):
+    for _ in range(random.randint(4, 7)):
         await asyncio.sleep(1)
     await bot.send_message(chat_id, "Пожар потушен!🧯✅")
     all_ships[chat_id]["blocked"] = False
@@ -719,13 +756,18 @@ async def self_destruction_callback(callback: CallbackQuery):
     await callback.answer()
 
 
-# Костыль для перепроверки данных и их обновления
-def check_and_save_data(state: dict, chat_id: int):
+# Костыль для перепроверки данных
+def check_data(state: dict, chat_id: int):
     state["ship_fuel"] = clamp(state["ship_fuel"], 0, 100)
     state["ship_health"] = clamp(state["ship_health"], 0, 100)
     state["crew_health"] = clamp(state["crew_health"], 0, 100)
     state["crew_oxygen"] = clamp(state["crew_oxygen"], 0, 100)
     all_ships[chat_id] = state
+
+
+# Функция для сохранения данных
+def check_and_save_data(state: dict, chat_id: int):
+    check_data(state, chat_id)
     save_chat_state(chat_id, state)
 
 
@@ -741,6 +783,25 @@ async def game_loop_planet_change(chat_id: int):
         await asyncio.sleep(60)
 
 
+# Атака пришельцев
+async def alien_attack(chat_id: int):
+    if all_ships[chat_id]['alien_attack']:
+        return
+    all_ships[chat_id]['alien_attack'] = True
+    await bot.send_message(chat_id, "⚠️ Нас атакуют пришельцы! 👽🛸\nОтбейте атаку при помощи команды:\n/выстрел")
+    while is_chat_active(chat_id) and all_ships[chat_id]['alien_attack']:
+        if random.random() < 0.05:
+            all_ships[chat_id]['ship_health'] = clamp(all_ships[chat_id]['ship_health'] - random.randint(1, 10), 0, 100)
+            await bot.send_message(chat_id,
+                                   f"Пришельцы попали в нас 👽!\nПрочность корабля: {all_ships[chat_id]['ship_health']}%")
+            if random.random() < 0.3 and not all_ships[chat_id]["fire"]:
+                # Пожар от выстрела противника
+                all_ships[chat_id]["fire"] = True
+                await fire_func(chat_id)
+
+        await asyncio.sleep(5)
+
+
 # Создание случайных событий на планете или в космосе.
 async def game_loop_events(chat_id: int):
     # Небольшая задержка в начале игры
@@ -753,7 +814,7 @@ async def game_loop_events(chat_id: int):
                 value = random.randint(50, 125)
                 all_ships[chat_id]["resources"] += value
                 await bot.send_message(chat_id, f"Мы нашли полезные ресурсы!\nПолучено {value} ресурсов")
-            if random.random() < 0.1:
+            if random.random() < 0.08:
                 # Аномалия на планете
                 value = random.randint(1, 3)
                 all_ships[chat_id]["ship_health"] -= value
@@ -767,16 +828,21 @@ async def game_loop_events(chat_id: int):
                 all_ships[chat_id]["ship_health"] -= value
                 await bot.send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
-            if random.random() < 0.03:
+            if random.random() < 0.02:
                 # Космическая аномалия
                 all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
                 await bot.send_message(chat_id, f"Космическая аномалия!\nМы сбились с курса")
         # Здесь могут быть универсальные события
+        if random.random() < 0.01 and not all_ships[chat_id]["alien_attack"]:
+            # Атака пришельцев
+            await alien_attack(chat_id)
+
         if random.random() < 0.005 and not all_ships[chat_id]["fire"]:
             # пожар
             all_ships[chat_id]["fire"] = True
             await fire_func(chat_id)
 
+        check_data(all_ships[chat_id], chat_id)
         await asyncio.sleep(30)
 
 
@@ -831,6 +897,8 @@ async def game_loop(chat_id: int):
             await bot.send_message(chat_id, "Игра завершена!\nЭкипаж мёртв. ⚠️")
             delete_chat_state(chat_id)
             break
+        # Проверка данных во избежание проблем
+        check_data(all_ships[chat_id], chat_id)
         # Ожидаем 5 секунд перед началом следующей итерации
         await asyncio.sleep(5)
     await bot.send_message(chat_id, "Конец.")
