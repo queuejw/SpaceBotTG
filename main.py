@@ -370,10 +370,10 @@ async def fly(chat_id: int, planet_name: str):
     if all_ships[chat_id]['connected_chat'] != 'null':
         c_chat_id = int(all_ships[chat_id]['connected_chat'])
         if is_chat_active(c_chat_id):
-            сhat = await bot.get_chat(chat_id)
-            if type(сhat.title) != NoneType:
+            chat = await bot.get_chat(chat_id)
+            if type(chat.title) != NoneType:
                 await bot.send_message(c_chat_id,
-                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {сhat.title} летит на планету {planet_name}!")
+                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} летит на планету {planet_name}!")
             else:
                 await bot.send_message(c_chat_id,
                                        f"Корабль {all_ships[chat_id]['ship_name']} летит на планету {planet_name}!")
