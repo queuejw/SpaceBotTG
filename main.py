@@ -16,7 +16,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.filters import CommandStart, Command, CommandObject
 from aiogram.methods import DeleteWebhook
-from aiogram.types import Message, ChatMemberUpdated, InlineKeyboardButton, CallbackQuery
+from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 
 
@@ -367,6 +367,16 @@ async def fly(chat_id: int, planet_name: str):
     all_ships[chat_id]["planet_name"] = planet_name
     all_ships[chat_id]["previous_planet_name"] = planet_name
     await bot.send_message(chat_id, f"Успешная посадка на планету {planet_name} ")
+    if all_ships[chat_id]['connected_chat'] != 'null':
+        c_chat_id = int(all_ships[chat_id]['connected_chat'])
+        if is_chat_active(c_chat_id):
+            сhat = await bot.get_chat(chat_id)
+            if type(сhat.title) != NoneType:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {сhat.title} летит на планету {planet_name}!")
+            else:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} летит на планету {planet_name}!")
 
 
 # Команда для посадки, полета на планету
@@ -413,6 +423,16 @@ async def leave_planet(chat_id: int):
     all_ships[chat_id]["previous_planet_name"] = all_ships[chat_id]["planet_name"]
     all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
     await bot.send_message(chat_id, f"Мы покинули планету {all_ships[chat_id]["previous_planet_name"]}")
+    if all_ships[chat_id]['connected_chat'] != 'null':
+        c_chat_id = int(all_ships[chat_id]['connected_chat'])
+        if is_chat_active(c_chat_id):
+            chat = await bot.get_chat(chat_id)
+            if type(chat.title) != NoneType:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} покинул планету {all_ships[chat_id]["previous_planet_name"]}!")
+            else:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} покинул планету {all_ships[chat_id]["previous_planet_name"]}!")
 
 
 # Команда, чтобы покинуть планету
@@ -462,16 +482,6 @@ async def repair_ship(message: Message):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
     await repair(chat_id)
-
-
-# Бот должен завершать игру, если его исключают из чата
-@dp.chat_member()
-async def handle_chat_rocket_message(chat_member: ChatMemberUpdated):
-    if chat_member.new_chat_member.user.id == bot.id:
-        await bot.send_message(chat_member.chat.id, "🚀")
-    elif chat_member.new_chat_member.user.id == bot.id and chat_member.new_chat_member.status in ["kicked", "left"]:
-        print(f"Бота удалили из чата {chat_member.chat.id}, завершаю игру, если активна.")
-        delete_chat_state(chat_member.chat.id)
 
 
 # Команда самоуничтожения
@@ -621,6 +631,10 @@ async def disconnect_from_other_ship(message: Message):
         return
     if all_ships[chat_id]['connected_chat'] != 'null':
         connected_chat_id = int(all_ships[chat_id]['connected_chat'])
+        if not is_chat_active(connected_chat_id):
+            all_ships[chat_id]['connected_chat'] = 'null'
+            await bot.send_message(chat_id, f"Мы успешно отключились от другого корабля.")
+            return
         connected_chat = await bot.get_chat(connected_chat_id)
         all_ships[chat_id]['connected_chat'] = 'null'
         chat_name = connected_chat.title
@@ -640,6 +654,8 @@ async def disconnect_from_other_ship(message: Message):
             else:
                 await bot.send_message(connected_chat_id,
                                        f"Корабль {all_ships[chat_id]["ship_name"]} отключился от нас.")
+    else:
+        await bot.send_message(chat_id, "Мы уже отключились от другого корабля ⚠️")
 
 
 async def self_destruction_func(chat_id):
@@ -681,6 +697,17 @@ async def update_computer_text(callback: CallbackQuery):
 async def fire_func(chat_id: int):
     await bot.send_message(chat_id, "🔥")
     await bot.send_message(chat_id, "🔥Корабль горит!🔥", reply_markup=get_fire_inline_keyboard())
+    if all_ships[chat_id]['connected_chat'] != 'null':
+        c_chat_id = int(all_ships[chat_id]['connected_chat'])
+        if is_chat_active(c_chat_id):
+            chat = await bot.get_chat(chat_id)
+            if type(chat.title) != NoneType:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} горит!")
+            else:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} горит!")
+
     while True:
         if not is_chat_active(chat_id):
             break
@@ -789,6 +816,16 @@ async def alien_attack(chat_id: int):
         return
     all_ships[chat_id]['alien_attack'] = True
     await bot.send_message(chat_id, "⚠️ Нас атакуют пришельцы! 👽🛸\nОтбейте атаку при помощи команды:\n/выстрел")
+    if all_ships[chat_id]['connected_chat'] != 'null':
+        c_chat_id = int(all_ships[chat_id]['connected_chat'])
+        if is_chat_active(c_chat_id):
+            chat = await bot.get_chat(chat_id)
+            if type(chat.title) != NoneType:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} атакуют пришельцы!")
+            else:
+                await bot.send_message(c_chat_id,
+                                       f"Корабль {all_ships[chat_id]['ship_name']} атакуют пришельцы!")
     while is_chat_active(chat_id) and all_ships[chat_id]['alien_attack']:
         if random.random() < 0.05:
             all_ships[chat_id]['ship_health'] = clamp(all_ships[chat_id]['ship_health'] - random.randint(1, 10), 0, 100)
