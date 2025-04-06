@@ -1,9 +1,8 @@
+print("Добро пожаловать в открытый космос. Подождите секунду...")
 # открытый космос бот игра от @queuejw
 # библиотеки необходимые для работы бота
 import asyncio
-import json
 import logging
-import os
 import random
 import sys
 from asyncio import CancelledError
@@ -14,160 +13,38 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
-from aiogram.filters import CommandStart, Command, CommandObject
+from aiogram.filters import Command, CommandObject
 from aiogram.methods import DeleteWebhook
-from aiogram.types import Message, InlineKeyboardButton, CallbackQuery
-from aiogram.utils.keyboard import InlineKeyboardBuilder
+from aiogram.types import Message, CallbackQuery
+
+import helpers.chat_utils
+from handlers import start_help_info_handler
+from helpers.keyboards import get_computer_inline_keyboard, get_self_destruction_inline_keyboard, \
+    get_fire_inline_keyboard
+
+all_ships = {}
 
 
-# Функция для получения токена бота из файла token.txt
-def get_token() -> str:
-    token_file = "token.txt"
-    if os.path.exists(token_file):
-        with open(token_file, "r") as f:
-            result = f.read()
-            f.close()
-            return result
-    # Если не получится, то останавливаем
-    print("Токен не найден. Остановка.")
-    exit(1)
+# Удаляет чат из all_ships
+def remove_chat_from_all_ships(chat_id: int):
+    all_ships.pop(chat_id)
 
 
-# Функция для получения списка планет
-def get_planets():
-    pl_file = "planets.txt"
-    if os.path.exists(pl_file):
-        with open(pl_file, 'r', encoding='utf-8') as file:
-            planets_from_file = [line.strip() for line in file.readlines()]
-            file.close()
-            return planets_from_file
-    # Если не получится, то останавливаем
-    print("Планеты не найдены. Остановка.")
-    exit(1)
-
-
-# Планеты
-PLANETS = get_planets()
-
-# Эмодзи
 REPAIR_EMOJI = ["🔨", "⚒️", "🛠", "⛏️", "🪚", "⚙️", "🔧", "🪛"]
-# Токен, бот
-TOKEN = get_token()
+
+TOKEN = helpers.chat_utils.get_token()
+PLANETS = helpers.chat_utils.get_planets()
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
 
-# Корабли всех чатов будут здесь
-all_ships = {}
-# Директория для хранения кораблей
-DATA_DIR = "ships"
-# создать если нет
-os.makedirs(DATA_DIR, exist_ok=True)
-# ссылка на наш GitHUb
-github_link = "https://github.com/queuejw/SpaceBotTG"
-
-
-# Стандартные параметры корабля
-def get_default_ship() -> dict:
-    return {
-        'default': True,  # Стандартный ли это корабль?
-        'active': False,  # Активна ли игра?
-        'blocked': False,  # Заблокированы ли действия игроков?
-        'on_planet': False,  # Находится ли корабль на планете?
-        'air_leaking': False,  # Утечка воздуха
-        'fire': False,  # Пожар на корабле
-        'planet_name': "Земля",  # Название текущей планеты
-        'next_planet_name': "Луна",  # Название следующей планеты
-        'previous_planet_name': "Земля",  # Название предыдущей планеты
-        'ship_name': "Марс-06",  # Название корабля
-        'distance': 0,  # Расстояние от планеты
-        'ship_fuel': 100,  # Уровень топлива (от 0 до 100)
-        'ship_health': 100,  # Уровень прочности (от 0 до 100)
-        'ship_speed': 0,  # Скорость (от 28 000 до 108 000)
-        'crew_health': 100,  # Здоровье экипажа (от 0 до 100)
-        'crew_oxygen': 100,  # Уровень воздуха (от 0 до 100)
-        'resources': 500,  # Количество ресурсов
-        'connected_chat': 'null',  # Id чата, с которым в данный момент идёт связь. Если null, значит связи нет.
-        'alien_attack': False  # Атакуют ли пришельцы?
-    }
-
-
-# Создает кнопки обновить для сообщения компьютера
-def get_computer_inline_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Обновить", callback_data="update_computer_text"))
-    return builder.as_markup()
-
-
-# Создает кнопки да и отмена для сообщения самоуничтожения
-def get_self_destruction_inline_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(
-        InlineKeyboardButton(text="Отмена", callback_data="self_destruction_cancel"),
-        InlineKeyboardButton(text="Отмена", callback_data="self_destruction_cancel"),
-        InlineKeyboardButton(text="Да", callback_data="self_destruction_continue")
-    )
-    return builder.as_markup()
-
-
-# Создает кнопки потушить для сообщения пожара на корабле
-def get_fire_inline_keyboard():
-    builder = InlineKeyboardBuilder()
-    builder.row(InlineKeyboardButton(text="Потушить", callback_data="fire_callback"))
-    return builder.as_markup()
-
-
-# Функция для получения пути к файлу корабля
-def get_chat_folder(chat_id: int) -> str:
-    print(f"Получаю папку для чата {chat_id}")
-    return os.path.join(DATA_DIR, str(chat_id))
-
-
-def get_chat_state_file(chat_id: int) -> str:
-    print(f"Получаю файл корабля чата {chat_id}")
-    return os.path.join(get_chat_folder(chat_id), "ship.json")
-
-
-# Функция для удаления корабля
-def delete_chat_state(chat_id: int):
-    print(f"Пытаюсь удалить корабль чата {chat_id}")
-    all_ships.pop(chat_id)
-    state_file = get_chat_state_file(chat_id)
-    if os.path.exists(state_file):
-        os.remove(state_file)
-        print(f"Корабль чата {chat_id} удален")
-
-
-# Функция для загрузки корабля
-def load_chat_state(chat_id: int) -> dict:
-    state_file = get_chat_state_file(chat_id)
-
-    if os.path.exists(state_file):
-        with open(state_file, "r") as f:
-            return json.load(f)
-
-    # Если файл не существует, инициализируем новое состояние
-    print(f"Не получилось получить корабль, возвращаем стандартный.")
-    return get_default_ship()
-
-
-# Функция для сохранения корабля
-def save_chat_state(chat_id: int, state: dict):
-    print(f"Сохраняю данные корабля чата {chat_id}")
-    chat_folder = get_chat_folder(chat_id)
-    os.makedirs(chat_folder, exist_ok=True)
-
-    state_file = get_chat_state_file(chat_id)
-    with open(state_file, "w", encoding="utf-8") as f:
-        f.write(json.dumps(state))
-
 
 # Вернет True, если корабль чата есть в словаре.
-def is_chat_active(chat_id: int):
+def is_chat_active(chat_id: int) -> bool:
     return chat_id in all_ships
 
 
 # Вернет True, если выполнение действий в данных момент запрещено
-def is_actions_blocked(chat_id: int):
+def is_actions_blocked(chat_id: int) -> bool:
     return all_ships[chat_id]['blocked']
 
 
@@ -183,43 +60,34 @@ async def notify_players(chat_id: int, loaded_state: dict):
 # Функция для создания нового корабля в чате
 def create_new_ship(chat_id: int):
     print(f"Создаю корабль для чата {chat_id}")
-    loaded_state = load_chat_state(chat_id)
+    loaded_state = helpers.chat_utils.load_chat_state(chat_id)
     asyncio.create_task(notify_players(chat_id, loaded_state))
     all_ships[chat_id] = loaded_state
-    save_chat_state(chat_id, all_ships[chat_id])
+    helpers.chat_utils.save_chat_state(chat_id, all_ships[chat_id])
+
+
+# Создание корабля для чата
+@dp.message(Command("играть"))
+async def play(message: Message):
+    chat_id = message.chat.id
+    if is_chat_active(chat_id):
+        await message.answer("Не удалось запустить корабль в космос:\nИгра активна. ⚠️")
+        return
+    # Создаем корабль для этого чата
+    create_new_ship(chat_id)
+    asyncio.create_task(game_loop(chat_id))
+    asyncio.create_task(game_loop_planet_change(chat_id))
+    asyncio.create_task(game_loop_events(chat_id))
+    text = (
+        "🚀Игра началась!\n"
+        "Введите команду /помощь , чтобы узнать все команды бота."
+    )
+    await message.answer(text)
 
 
 # Ограничивает значение в пределах минимального и максимального.
 def clamp(value, min_value, max_value):
     return max(min_value, min(max_value, value))
-
-
-# Функция, которая вызывается командой /start
-@dp.message(CommandStart())
-async def command_start_handler(message: Message):
-    text = (
-        "Привет! Добро пожаловать на борт!👽\n"
-        "Этот бот поможет вам весело провести время в открытом космосе вместе с друзьями!👨‍👨‍👦\n"
-        "\n"
-        "Путешествуйте по планетам, ищите друзей из других чатов, собирайте ресурсы и попробуйте выжить как можно дольше!💼\n"
-        "\n"
-        "Введи /играть , чтобы начать путешествие в мир космоса!🚀\n"
-        "/инфо для информации о боте."
-    )
-    await message.answer(text)
-
-
-# Функция, которая вызывается командой /инфо
-@dp.message(Command("инфо"))
-async def info(message: Message):
-    text = (
-        "открытый космос - игровой бот для вашего чата.👽\n"
-        "находится в разработке, не все функции работают правильно.\n"
-        "последнее обновление: 05.04.25\n"
-        "сделал @queuejw\n"
-        f"исходный код бота: {github_link}"
-    )
-    await message.answer(text)
 
 
 # Функция для получения текста сообщения компьютера
@@ -274,47 +142,6 @@ async def computer(message: Message):
         return
     text = get_computer_text(chat_id)
     await message.answer(text, reply_markup=get_computer_inline_keyboard())
-
-
-# Функция, которая вызывается командой /помощь. Выводит текст со всеми возможными командами и их описанием.
-@dp.message(Command('помощь'))
-async def commands(message: Message):
-    text = (
-        "Команды бортового компьютера:\n"
-        "\n"
-        "/компьютер (или /к) - информация о корабле\n"
-        "/лететь [планета] - лететь на указанную планету. Если не указать, то будет выбрана следующая планета\n"
-        "/покинуть - покинуть планету\n"
-        "/ремонт - немного лечит экипаж и немного увеличивает прочность корабля, а также исправляет утечки воздуха. Требуется 50 ресурсов.\n"
-        "/выстрел - выстрел из орудий. работает при атаке пришельцев"
-        "\n"
-        "/самоуничтожение - закончить игру (потребуется подтвердить своё решение).\n"
-        "/название [название] - изменить название корабля (не более 18 символов).\n"
-        "/связь (или /с) [сообщение] - устанавливает связь между кораблями. Оставьте [название] пустым, чтобы подключиться к случайному кораблю. после подключения [название] используется для передачи сообщений.\n"
-        "/!связь (или /!с) - отключает связь с другим кораблем\n"
-        "\n"
-        "Путешествуйте по планетам, чтобы собирать ресурсы. С помощью ресурсов вы сможете ремонтировать корабль, тушить пожары и выполнять многие действия."
-    )
-    await message.answer(text)
-
-
-# Создание корабля для чата
-@dp.message(Command("играть"))
-async def play(message: Message):
-    chat_id = message.chat.id
-    if is_chat_active(chat_id):
-        await message.answer("Не удалось запустить корабль в космос:\nИгра активна. ⚠️")
-        return
-    # Создаем корабль для этого чата
-    create_new_ship(chat_id)
-    asyncio.create_task(game_loop(chat_id))
-    asyncio.create_task(game_loop_planet_change(chat_id))
-    asyncio.create_task(game_loop_events(chat_id))
-    text = (
-        "🚀Игра началась!\n"
-        "Введите команду /помощь , чтобы узнать все команды бота."
-    )
-    await bot.send_message(chat_id, text)
 
 
 # Команда для переименования корабля
@@ -664,7 +491,8 @@ async def self_destruction_func(chat_id):
         "💥💥💥💥💥\n"
         "Игра завершена! Корабль самоуничтожился."
     )
-    delete_chat_state(chat_id)
+    remove_chat_from_all_ships(chat_id)
+    helpers.chat_utils.delete_chat_state(chat_id)
     await bot.send_message(chat_id, text)
 
 
@@ -795,7 +623,7 @@ def check_data(state: dict, chat_id: int):
 # Функция для сохранения данных
 def check_and_save_data(state: dict, chat_id: int):
     check_data(state, chat_id)
-    save_chat_state(chat_id, state)
+    helpers.chat_utils.save_chat_state(chat_id, state)
 
 
 # Изменение планет и сброс расстояния каждые 60 секунд
@@ -932,7 +760,8 @@ async def game_loop(chat_id: int):
         # завершаем игру если здоровье экипажа меньше 1 (0)
         if all_ships[chat_id]["crew_health"] < 1:
             await bot.send_message(chat_id, "Игра завершена!\nЭкипаж мёртв. ⚠️")
-            delete_chat_state(chat_id)
+            remove_chat_from_all_ships(chat_id)
+            helpers.chat_utils.delete_chat_state(chat_id)
             break
         # Проверка данных во избежание проблем
         check_data(all_ships[chat_id], chat_id)
@@ -944,6 +773,7 @@ async def game_loop(chat_id: int):
 # Функция, которая вызывается при запуске бота
 async def init():
     try:
+        dp.include_routers(start_help_info_handler.router)
         await bot(DeleteWebhook(drop_pending_updates=True))
         await dp.start_polling(bot)
     except CancelledError:
@@ -952,6 +782,6 @@ async def init():
 
 # Запуск бота
 if __name__ == "__main__":
-    print("Открытый космос бот запущен")
+    print(f"Открытый космос бот запущен.")
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
     asyncio.run(init())
