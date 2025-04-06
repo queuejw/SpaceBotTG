@@ -144,6 +144,31 @@ async def computer(message: Message):
     await message.answer(text, reply_markup=get_computer_inline_keyboard())
 
 
+# Выводит информацию о предметах на складе
+@dp.message(Command("склад"))
+async def storage(message: Message):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer(
+            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    text = (f"📦 Склад корабля {all_ships[chat_id]['ship_name']} 📦\n"
+            "=============\n"
+            f"📦 Ресурсы: {all_ships[chat_id]['resources']}\n"
+            f"🧯 Огнетушители: {all_ships[chat_id]['extinguishers']}\n"
+            f"🔫 Снаряды: {all_ships[chat_id]['bullets']}\n")
+    await message.answer(text)
+
+
+# Проверка доступности названия корабля
+def check_name(new_name: str) -> bool:
+    ships = list(all_ships.items())
+    for ship in ships:
+        if ship[1]['ship_name'] == new_name:
+            return False
+    return True
+
+
 # Команда для переименования корабля
 @dp.message(Command("название"))
 async def change_ship_name(message: Message, command: CommandObject):
@@ -162,6 +187,10 @@ async def change_ship_name(message: Message, command: CommandObject):
     # Пробуем переименовать
     try:
         name = command.args
+        if not check_name(name):
+            await message.answer("Это название уже занято ⚠️\nПопробуйте другое")
+            return
+
         if len(name) > 18:
             await message.answer("Не удалось изменить название\nНазвание слишком длинное⚠️")
             return
@@ -337,7 +366,10 @@ async def shot_command(message: Message):
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
     if not all_ships[chat_id]['alien_attack']:
-        await message.answer("Нельзя стрелять, когда нет опасностей ⚠️")
+        await message.answer("⚠️ Нельзя стрелять, когда нет опасностей")
+        return
+    if int(all_ships[chat_id]['bullets']) < 1:
+        await message.answer("⚠️ У нас нет снарядов!\nСоздайте их в меню создания (/создание)")
         return
     # Симуляция выстрела
     if random.random() < 0.5:
@@ -360,56 +392,70 @@ def get_random_chat_id(my_chat_id: int):
         return int(r_chat_id)
 
 
+async def connection(random_chat_id: int, chat_id: int, my_chat_title, args):
+    if random_chat_id == chat_id:
+        await bot.send_message(chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
+        return
+    if not is_chat_active(random_chat_id):
+        print("чат не активен, попытка соединиться ещё раз")
+        await connect(chat_id, my_chat_title, args)
+        return
+    if all_ships[random_chat_id]['connected_chat'] != 'null':
+        await bot.send_message(chat_id,
+                               f"Не удалось подключиться к выбранному кораблю. Попробуйте установить связь ещё раз.")
+        return
+
+    all_ships[chat_id]['connected_chat'] = f'{random_chat_id}'
+    all_ships[random_chat_id]['connected_chat'] = f'{chat_id}'
+
+    print(f"выбран чат {random_chat_id} , отправляю сообщения")
+    random_chat = await bot.get_chat(random_chat_id)
+
+    if type(random_chat.title) != NoneType:
+        r_chat_name = random_chat.title
+        await bot.send_message(chat_id,
+                               f"Установлена связь с кораблём {all_ships[random_chat_id]['ship_name']} чата {r_chat_name}\nЧтобы отключиться, введите /!связь")
+    else:
+        await bot.send_message(chat_id,
+                               f"Установлена связь с кораблём {all_ships[random_chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
+
+    if type(my_chat_title) != NoneType:
+        chat_name = my_chat_title
+        await bot.send_message(random_chat_id,
+                               f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']} чата {chat_name}\nЧтобы отключиться, введите /!связь")
+    else:
+        await bot.send_message(random_chat_id,
+                               f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
+
+
 # Соединение с кораблем
-async def connect(chat_id: int, message: Message, command: CommandObject):
+async def connect(chat_id: int, title, args):
     try:
-        args = command.args
         if type(args) == NoneType:
             # Связываемся со случайным кораблем
             if all_ships[chat_id]['connected_chat'] == 'null':
                 random_chat_id = get_random_chat_id(chat_id)
+                await connection(random_chat_id, chat_id, title, args)
 
-                if random_chat_id == chat_id:
-                    await bot.send_message(chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
-                    return
-                if not is_chat_active(random_chat_id):
-                    print("чат не активен, попытка соединиться ещё раз")
-                    await connect(chat_id, message, command)
-                    return
-                if all_ships[random_chat_id]['connected_chat'] != 'null':
-                    await bot.send_message(chat_id,
-                                           f"Не удалось подключиться к выбранному кораблю. Попробуйте установить связь ещё раз.")
-                    return
-
-                all_ships[chat_id]['connected_chat'] = f'{random_chat_id}'
-                all_ships[random_chat_id]['connected_chat'] = f'{chat_id}'
-
-                print(f"выбран чат {random_chat_id} , отправляю сообщения")
-                random_chat = await bot.get_chat(random_chat_id)
-
-                if type(random_chat.title) != NoneType:
-                    r_chat_name = random_chat.title
-                    await bot.send_message(chat_id,
-                                           f"Установлена связь с кораблём {all_ships[random_chat_id]['ship_name']} чата {r_chat_name}\nЧтобы отключиться, введите /!связь")
-                else:
-                    await bot.send_message(chat_id,
-                                           f"Установлена связь с кораблём {all_ships[random_chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
-
-                if type(message.chat.title) != NoneType:
-                    chat_name = message.chat.title
-                    await bot.send_message(random_chat_id,
-                                           f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']} чата {chat_name}\nЧтобы отключиться, введите /!связь")
-                else:
-                    await bot.send_message(random_chat_id,
-                                           f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
             else:
                 await bot.send_message(chat_id,
                                        f"Уже установлена связь с каким-то кораблём.\nЧтобы отключиться, введите /!связь")
-
         else:
             if all_ships[chat_id]['connected_chat'] == 'null':
-                await bot.send_message(chat_id,
-                                       "Чтобы отправить сообщение, нужно подключиться к какому-то кораблю. Для этого введите /связь")
+                ships_f = 0
+                ships_f_id = -1
+                ships = list(all_ships.items())
+                for ship in ships:
+                    if ship[1]['ship_name'] == args:
+                        ships_f += 1
+                        ships_f_id = int(ship[0])
+                if ships_f != 1:
+                    await bot.send_message(chat_id,
+                                           "Не получилось подключиться к выбранному кораблю ⚠️")
+                else:
+                    await connection(ships_f_id, chat_id, title, args)
+
+
             # или передаем сообщения
             else:
                 connected_chat_id = int(all_ships[chat_id]['connected_chat'])
@@ -429,7 +475,7 @@ async def connect(chat_id: int, message: Message, command: CommandObject):
                 await bot.send_message(chat_id, f"Отправлено сообщение: {args}")
 
     except ValueError:
-        await message.answer("Не удалось связаться с кораблём.\nПри передаче данных связь была потеряна⚠️")
+        await bot.send_message(chat_id, "Не удалось связаться с кораблём.\nПри передаче данных связь была потеряна⚠️")
 
 
 # Команда для связи с другими кораблями
@@ -443,7 +489,7 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
-    await connect(chat_id, message, command)
+    await connect(chat_id, message.chat.title, command.args)
 
 
 @dp.message(Command("!связь", "!с"))
@@ -571,6 +617,9 @@ async def fire_callback(callback: CallbackQuery):
         print("Корабль не горит")
         await callback.answer("Корабль не горит.")
         return
+    if int(all_ships[chat_id]['extinguishers']) < 1:
+        await callback.answer("Закончились огнетушители! ⚠️")
+        return
     if all_ships[chat_id]["blocked"]:
         await callback.answer("Мы уже тушим корабль!")
         return
@@ -580,6 +629,7 @@ async def fire_callback(callback: CallbackQuery):
     for _ in range(random.randint(4, 7)):
         await asyncio.sleep(1)
     await bot.send_message(chat_id, "Пожар потушен!🧯✅")
+    all_ships[chat_id]['extinguishers'] -= 1
     all_ships[chat_id]["blocked"] = False
     all_ships[chat_id]["fire"] = False
 
@@ -617,6 +667,8 @@ def check_data(state: dict, chat_id: int):
     state["ship_health"] = clamp(state["ship_health"], 0, 100)
     state["crew_health"] = clamp(state["crew_health"], 0, 100)
     state["crew_oxygen"] = clamp(state["crew_oxygen"], 0, 100)
+    state["extinguishers"] = clamp(state["extinguishers"], 0, 256)
+    state["bullets"] = clamp(state["bullets"], 0, 128)
     all_ships[chat_id] = state
 
 
@@ -702,7 +754,7 @@ async def game_loop_events(chat_id: int):
             # Атака пришельцев
             await alien_attack(chat_id)
 
-        if random.random() < 0.005 and not all_ships[chat_id]["fire"]:
+        if random.random() < 0.008 and not all_ships[chat_id]["fire"]:
             # пожар
             all_ships[chat_id]["fire"] = True
             await fire_func(chat_id)
