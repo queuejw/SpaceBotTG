@@ -24,5 +24,7 @@ def get_default_ship() -> dict:
         'connected_chat': 'null',  # Id чата, с которым в данный момент идёт связь. Если null, значит связи нет.
         'alien_attack': False,  # Атакуют ли пришельцы?
         'extinguishers': random.randint(3, 6),  # Количество огнетушителей на складе
-        'bullets': random.randint(3, 6)  # Количество снарядов на складе
+        'bullets': random.randint(3, 6),  # Количество снарядов на складе
+        'captain': "null", # Капитан; участник, который первый запустил игру.
+        'crew': [] # Id участников, которые имеют доступ к боту
     }

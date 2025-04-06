@@ -43,6 +43,26 @@ def is_chat_active(chat_id: int) -> bool:
     return chat_id in all_ships
 
 
+# Функция, которая позволяет добавить id пользователя в список разрешенных пользователей
+def add_user_to_white_list(user_id: int, chat_id: int):
+    users: list = all_ships[chat_id]['crew']
+    users.append(user_id)
+    all_ships[chat_id]['crew'] = users
+
+
+# Функция, которая позволяет удалить id пользователя из списка разрешенных пользователей
+def del_user_from_white_list(user_id: int, chat_id: int):
+    users: list = all_ships[chat_id]['crew']
+    users.remove(user_id)
+    all_ships[chat_id]['crew'] = users
+
+
+#  Вернет True, если id пользователя есть в списке разрешенных
+def is_user_allowed(user_id: int, chat_id: int) -> bool:
+    users: list = all_ships[chat_id]['crew']
+    return user_id in users
+
+
 # Вернет True, если выполнение действий в данных момент запрещено
 def is_actions_blocked(chat_id: int) -> bool:
     return all_ships[chat_id]['blocked']
@@ -58,11 +78,14 @@ async def notify_players(chat_id: int, loaded_state: dict):
 
 
 # Функция для создания нового корабля в чате
-def create_new_ship(chat_id: int):
+def create_new_ship(message: Message):
+    chat_id = message.chat.id
     print(f"Создаю корабль для чата {chat_id}")
     loaded_state = helpers.chat_utils.load_chat_state(chat_id)
     asyncio.create_task(notify_players(chat_id, loaded_state))
+    loaded_state['captain'] = message.from_user.first_name
     all_ships[chat_id] = loaded_state
+    add_user_to_white_list(message.from_user.id, chat_id)
     helpers.chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
 
@@ -74,7 +97,7 @@ async def play(message: Message):
         await message.answer("Не удалось запустить корабль в космос:\nИгра активна. ⚠️")
         return
     # Создаем корабль для этого чата
-    create_new_ship(chat_id)
+    create_new_ship(message)
     asyncio.create_task(game_loop(chat_id))
     asyncio.create_task(game_loop_planet_change(chat_id))
     asyncio.create_task(game_loop_events(chat_id))
@@ -99,6 +122,7 @@ def get_computer_text(chat_id: int) -> str:
             "📺БОРТОВОЙ КОМПЬЮТЕР📺\n"
             "=============\n"
             f"🚀Корабль {state['ship_name']}\n"
+            f"👑 Капитан корабля: {state['captain']}\n"
             "=============\n"
             f"📏Расстояние: {state['distance']} км\n"
             f"🪐Следующий объект: {state['next_planet_name']}\n"
@@ -119,6 +143,7 @@ def get_computer_text(chat_id: int) -> str:
             "📺БОРТОВОЙ КОМПЬЮТЕР📺\n"
             "=============\n"
             f"🚀Корабль {state['ship_name']}\n"
+            f"👑 Капитан корабля: {state['captain']}\n"
             "=============\n"
             f"🌎Мы находимся на планете: {state['planet_name']}\n"
             "=============\n"
@@ -140,8 +165,58 @@ async def computer(message: Message):
         await message.answer(
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
     text = get_computer_text(chat_id)
     await message.answer(text, reply_markup=get_computer_inline_keyboard())
+
+
+@dp.message(Command("добавить"))
+async def add_user(message: Message, command: CommandObject):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer(
+            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+        await message.answer("Только капитан может добавить участников на борт ⚠️")
+        return
+    # Если аргументов нет, то мы не можем переименовать корабль
+    if command.args is None:
+        await message.answer("Не получилось отправить команду\nВы не указали ID участника⚠️")
+        return
+    try:
+        add_user_to_white_list(int(command.args), chat_id)
+        await message.answer("Успешно! Новый член экипажа успешно добавлен. ✅")
+    except ValueError:
+        await message.answer("Не получилось добавить нового игрока ⚠️")
+
+
+@dp.message(Command("удалить"))
+async def add_user(message: Message, command: CommandObject):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer(
+            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+        await message.answer("Только капитан может добавить участников на борт ⚠️")
+        return
+    # Если аргументов нет, то мы не можем переименовать корабль
+    if command.args is None:
+        await message.answer("Не получилось отправить команду\nВы не указали ID участника ⚠️")
+        return
+    if is_user_allowed(int(command.args), chat_id):
+        try:
+            del_user_from_white_list(int(command.args), chat_id)
+            await message.answer("Успешно! Член экипажа удален. ✅")
+        except ValueError:
+            await message.answer("Не удалось удалить члена экипажа ⚠️")
+
+    else:
+        await message.answer("Не удалось удалить члена экипажа ⚠️\nПерепроверьте ID")
 
 
 # Выводит информацию о предметах на складе
@@ -152,12 +227,23 @@ async def storage(message: Message):
         await message.answer(
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
+
     text = (f"📦 Склад корабля {all_ships[chat_id]['ship_name']} 📦\n"
             "=============\n"
             f"📦 Ресурсы: {all_ships[chat_id]['resources']}\n"
             f"🧯 Огнетушители: {all_ships[chat_id]['extinguishers']}\n"
             f"🔫 Снаряды: {all_ships[chat_id]['bullets']}\n")
     await message.answer(text)
+
+
+# Выводит id пользователя
+@dp.message(Command("id"))
+async def send_user_id(message: Message):
+    await message.answer(f"Ваш ID: {message.from_user.id}")
 
 
 # Проверка доступности названия корабля
@@ -179,6 +265,9 @@ async def change_ship_name(message: Message, command: CommandObject):
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
+        return
+    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+        await message.answer("Только капитан может изменить название корабля ⚠️")
         return
     # Если аргументов нет, то мы не можем переименовать корабль
     if command.args is None:
@@ -246,6 +335,10 @@ async def fly_command(message: Message, command: CommandObject):
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
     # Если аргументов нет, то летим на ближайшую (следующую) планету
     name = command.args
     if name is None:
@@ -299,6 +392,10 @@ async def leave_planet_command(message: Message):
         await message.answer(
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
@@ -334,6 +431,10 @@ async def repair_ship(message: Message):
     if not is_chat_active(chat_id):
         await message.answer("Не получилось отправить команду\nНет соединения с кораблем. ⚠️")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
@@ -351,6 +452,9 @@ async def self_destruction_command(message: Message):
     if not is_chat_active(chat_id):
         await message.answer("Не получилось отправить команду самоуничтожение\nНет соединения. ⚠️")
         return
+    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+        await message.answer("Только капитан может сделать это ⚠️")
+        return
     await message.answer("ВЫ УВЕРЕНЫ В ТОМ, ЧТО ХОТИТЕ СДЕЛАТЬ ЭТО ?:",
                          reply_markup=get_self_destruction_inline_keyboard())
 
@@ -361,6 +465,10 @@ async def craft(message: Message):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
         await message.answer("Не получилось отправить команду самоуничтожение\nНет соединения. ⚠️")
+        return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
         return
     await message.answer("Выберите предмет для создания 🛠",
                          reply_markup=get_craft_keyboard())
@@ -379,6 +487,10 @@ async def shot_command(message: Message):
     if not is_chat_active(chat_id):
         await message.answer(
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
         return
     if not all_ships[chat_id]['alien_attack']:
         await message.answer("⚠️ Нельзя стрелять, когда нет опасностей")
@@ -502,6 +614,10 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
         await message.answer(
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
+        return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
@@ -514,6 +630,10 @@ async def disconnect_from_other_ship(message: Message):
     if not is_chat_active(chat_id):
         await message.answer(
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    if not is_user_allowed(message.from_user.id, chat_id):
+        await message.answer(
+            "Только экипаж корабля может использовать эту команду. ⚠️")
         return
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
