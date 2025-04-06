@@ -26,3 +26,14 @@ def get_fire_inline_keyboard():
     builder = InlineKeyboardBuilder()
     builder.row(InlineKeyboardButton(text="Потушить", callback_data="fire_callback"))
     return builder.as_markup()
+
+
+# Создает кнопки для меню создания предметов
+def get_craft_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.row(
+        InlineKeyboardButton(text="🧯  (100📦)", callback_data="craft_extinguisher"),
+        InlineKeyboardButton(text="🔫  (50📦)", callback_data="craft_bullet"),
+        InlineKeyboardButton(text="Выход", callback_data="craft_exit")
+    )
+    return builder.as_markup()

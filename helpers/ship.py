@@ -22,7 +22,7 @@ def get_default_ship() -> dict:
         'crew_oxygen': 100,  # Уровень воздуха (от 0 до 100)
         'resources': 500,  # Количество ресурсов
         'connected_chat': 'null',  # Id чата, с которым в данный момент идёт связь. Если null, значит связи нет.
-        'alien_attack': False, # Атакуют ли пришельцы?
-        'extinguishers': random.randint(3, 6), # Количество огнетушителей на складе
-        'bullets': random.randint(3, 6) # Количество снарядов на складе
+        'alien_attack': False,  # Атакуют ли пришельцы?
+        'extinguishers': random.randint(3, 6),  # Количество огнетушителей на складе
+        'bullets': random.randint(3, 6)  # Количество снарядов на складе
     }

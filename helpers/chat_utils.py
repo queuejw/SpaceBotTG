@@ -8,6 +8,7 @@ DATA_DIR = "ships"
 # создать если нет
 os.makedirs(DATA_DIR, exist_ok=True)
 
+
 # Функция для получения токена бота из файла token.txt
 def get_token() -> str:
     token_file = "token.txt"

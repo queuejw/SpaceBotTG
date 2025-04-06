@@ -20,7 +20,7 @@ from aiogram.types import Message, CallbackQuery
 import helpers.chat_utils
 from handlers import start_help_info_handler
 from helpers.keyboards import get_computer_inline_keyboard, get_self_destruction_inline_keyboard, \
-    get_fire_inline_keyboard
+    get_fire_inline_keyboard, get_craft_keyboard
 
 all_ships = {}
 
@@ -337,6 +337,10 @@ async def repair_ship(message: Message):
     if is_actions_blocked(chat_id):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
+    if all_ships[chat_id]['ship_health'] > 99 and not all_ships[chat_id]['air_leaking']:
+        await message.answer("Ремонт не требуется.")
+        return
+
     await repair(chat_id)
 
 
@@ -349,6 +353,17 @@ async def self_destruction_command(message: Message):
         return
     await message.answer("ВЫ УВЕРЕНЫ В ТОМ, ЧТО ХОТИТЕ СДЕЛАТЬ ЭТО ?:",
                          reply_markup=get_self_destruction_inline_keyboard())
+
+
+# Команда для создания предметов
+@dp.message(Command("создание", "крафт"))
+async def craft(message: Message):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer("Не получилось отправить команду самоуничтожение\nНет соединения. ⚠️")
+        return
+    await message.answer("Выберите предмет для создания 🛠",
+                         reply_markup=get_craft_keyboard())
 
 
 # Случайный текст для неудачного выстрела
@@ -392,6 +407,7 @@ def get_random_chat_id(my_chat_id: int):
         return int(r_chat_id)
 
 
+# Соединение с кораблем
 async def connection(random_chat_id: int, chat_id: int, my_chat_title, args):
     if random_chat_id == chat_id:
         await bot.send_message(chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
@@ -428,7 +444,7 @@ async def connection(random_chat_id: int, chat_id: int, my_chat_title, args):
                                f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
 
 
-# Соединение с кораблем
+# Подготовка к соединению с кораблем, либо отправка сообщения
 async def connect(chat_id: int, title, args):
     try:
         if type(args) == NoneType:
@@ -634,6 +650,13 @@ async def fire_callback(callback: CallbackQuery):
     all_ships[chat_id]["fire"] = False
 
 
+async def delete_message(chat_id: int, message_id: int):
+    try:
+        await bot.delete_message(chat_id, message_id)
+    except TelegramBadRequest:
+        print("Не получилось удалить сообщение.")
+
+
 @dp.callback_query(F.data.startswith("self_destruction_"))
 async def self_destruction_callback(callback: CallbackQuery):
     print("Обработка самоуничтожения")
@@ -645,10 +668,7 @@ async def self_destruction_callback(callback: CallbackQuery):
     if callback.data == "self_destruction_cancel":
         print("Отмена самоуничтожения")
         await bot.answer_callback_query(callback.id, text="Отмена самоуничтожения")
-        try:
-            await bot.delete_message(callback.message.chat.id, callback.message.message_id)
-        except TelegramBadRequest:
-            print("Не получилось удалить сообщение.")
+        await delete_message(callback.message.chat.id, callback.message.message_id)
 
     elif callback.data == "self_destruction_continue":
         print(f"Начинаем самоуничтожение в чате {chat_id}")
@@ -658,6 +678,42 @@ async def self_destruction_callback(callback: CallbackQuery):
         except TelegramBadRequest:
             print("Не получилось удалить сообщение.")
         await self_destruction_func(callback.message.chat.id)
+    await callback.answer()
+
+
+@dp.callback_query(F.data.startswith("craft_"))
+async def craft_callback(callback: CallbackQuery):
+    print("Обработка создания предметов")
+    chat_id = callback.message.chat.id
+    if not is_chat_active(chat_id):
+        print("Игра не активна")
+        await callback.answer()
+        return
+    if callback.data == "craft_exit":
+        print("Отмена создания предметов")
+        await bot.answer_callback_query(callback.id, text="Отмена создания предметов")
+        await delete_message(callback.message.chat.id, callback.message.message_id)
+
+    elif callback.data == "craft_extinguisher":
+        if int(all_ships[chat_id]['resources']) < 100:
+            await bot.send_message(chat_id, "Недостаточно ресурсов ⚠️")
+            return
+        all_ships[chat_id]['resources'] -= 100
+        all_ships[chat_id]['extinguishers'] += 1
+        await bot.answer_callback_query(callback.id, text="Создан огнетушитель")
+        await bot.send_message(chat_id, "Создан огнетушитель ✅")
+        await delete_message(callback.message.chat.id, callback.message.message_id)
+
+    elif callback.data == "craft_bullet":
+        if int(all_ships[chat_id]['resources']) < 50:
+            await bot.send_message(chat_id, "Недостаточно ресурсов ⚠️")
+            return
+        all_ships[chat_id]['resources'] -= 50
+        all_ships[chat_id]['bullets'] += 1
+        await bot.answer_callback_query(callback.id, text="Создан снаряд")
+        await bot.send_message(chat_id, "Создан снаряд ✅")
+        await delete_message(callback.message.chat.id, callback.message.message_id)
+
     await callback.answer()
 
 
