@@ -1,10 +1,11 @@
+import sys
+
 print("Добро пожаловать в открытый космос. Подождите секунду...")
 # открытый космос бот игра от @queuejw
 # библиотеки необходимые для работы бота
 import asyncio
 import logging
 import random
-import sys
 from asyncio import CancelledError
 from types import NoneType
 
