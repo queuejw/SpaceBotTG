@@ -44,17 +44,23 @@ def is_chat_active(chat_id: int) -> bool:
 
 
 # Функция, которая позволяет добавить id пользователя в список разрешенных пользователей
-def add_user_to_white_list(user_id: int, chat_id: int):
+def add_user_to_white_list(user_id: int, chat_id: int) -> bool:
     users: list = all_ships[chat_id]['crew']
+    if user_id == users[0]:
+        return False
     users.append(user_id)
     all_ships[chat_id]['crew'] = users
+    return True
 
 
 # Функция, которая позволяет удалить id пользователя из списка разрешенных пользователей
-def del_user_from_white_list(user_id: int, chat_id: int):
+def del_user_from_white_list(user_id: int, chat_id: int) -> bool:
     users: list = all_ships[chat_id]['crew']
+    if user_id == users[0]:
+        return False
     users.remove(user_id)
     all_ships[chat_id]['crew'] = users
+    return True
 
 
 #  Вернет True, если id пользователя есть в списке разрешенных
@@ -103,7 +109,8 @@ async def play(message: Message):
     asyncio.create_task(game_loop_events(chat_id))
     text = (
         "🚀Игра началась!\n"
-        "Введите команду /помощь , чтобы узнать все команды бота."
+        "Введите команду /помощь , чтобы узнать все команды бота.\n"
+        "Добавить новых членов экипажа можно командой /добавить . Посмотрите список команд."
     )
     await message.answer(text)
 
@@ -188,8 +195,10 @@ async def add_user(message: Message, command: CommandObject):
         await message.answer("Не получилось отправить команду\nВы не указали ID участника⚠️")
         return
     try:
-        add_user_to_white_list(int(command.args), chat_id)
-        await message.answer("Успешно! Новый член экипажа успешно добавлен. ✅")
+        if add_user_to_white_list(int(command.args), chat_id):
+            await message.answer("Успешно! Новый член экипажа успешно добавлен. ✅")
+        else:
+            await message.answer("Не получилось добавить нового игрока ⚠️")
     except ValueError:
         await message.answer("Не получилось добавить нового игрока ⚠️")
 
@@ -202,7 +211,7 @@ async def add_user(message: Message, command: CommandObject):
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
-        await message.answer("Только капитан может добавить участников на борт ⚠️")
+        await message.answer("Только капитан может удалить участников ⚠️")
         return
     # Если аргументов нет, то мы не можем переименовать корабль
     if command.args is None:
@@ -210,8 +219,10 @@ async def add_user(message: Message, command: CommandObject):
         return
     if is_user_allowed(int(command.args), chat_id):
         try:
-            del_user_from_white_list(int(command.args), chat_id)
-            await message.answer("Успешно! Член экипажа удален. ✅")
+            if del_user_from_white_list(int(command.args), chat_id):
+                await message.answer("Успешно! Член экипажа выброшен в открытый космос. ✅")
+            else:
+                await message.answer("Капитан не может удалить самого себя ⚠️")
         except ValueError:
             await message.answer("Не удалось удалить члена экипажа ⚠️")
 
