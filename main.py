@@ -20,7 +20,7 @@ from aiogram.types import Message, CallbackQuery
 import helpers.chat_utils
 from handlers import start_help_info_handler
 from helpers.keyboards import get_computer_inline_keyboard, get_self_destruction_inline_keyboard, \
-    get_fire_inline_keyboard, get_craft_keyboard
+    get_fire_inline_keyboard, get_craft_keyboard, get_storage_inline_keyboard
 
 all_ships = {}
 
@@ -46,8 +46,9 @@ def is_chat_active(chat_id: int) -> bool:
 # Функция, которая позволяет добавить id пользователя в список разрешенных пользователей
 def add_user_to_white_list(user_id: int, chat_id: int) -> bool:
     users: list = all_ships[chat_id]['crew']
-    if user_id == users[0]:
-        return False
+    if len(users) > 1:
+        if user_id == users[0]:
+            return False
     users.append(user_id)
     all_ships[chat_id]['crew'] = users
     return True
@@ -56,8 +57,9 @@ def add_user_to_white_list(user_id: int, chat_id: int) -> bool:
 # Функция, которая позволяет удалить id пользователя из списка разрешенных пользователей
 def del_user_from_white_list(user_id: int, chat_id: int) -> bool:
     users: list = all_ships[chat_id]['crew']
-    if user_id == users[0]:
-        return False
+    if len(users) > 1:
+        if user_id == users[0]:
+            return False
     users.remove(user_id)
     all_ships[chat_id]['crew'] = users
     return True
@@ -230,6 +232,14 @@ async def add_user(message: Message, command: CommandObject):
         await message.answer("Не удалось удалить члена экипажа ⚠️\nПерепроверьте ID")
 
 
+def get_storage_text(state: dict) -> str:
+    return (f"📦 Склад корабля {state['ship_name']} 📦\n"
+            "=============\n"
+            f"📦 Ресурсы: {state['resources']}\n"
+            f"🧯 Огнетушители: {state['extinguishers']}\n"
+            f"🔫 Снаряды: {state['bullets']}\n")
+
+
 # Выводит информацию о предметах на складе
 @dp.message(Command("склад"))
 async def storage(message: Message):
@@ -243,12 +253,7 @@ async def storage(message: Message):
             "Только экипаж корабля может использовать эту команду. ⚠️")
         return
 
-    text = (f"📦 Склад корабля {all_ships[chat_id]['ship_name']} 📦\n"
-            "=============\n"
-            f"📦 Ресурсы: {all_ships[chat_id]['resources']}\n"
-            f"🧯 Огнетушители: {all_ships[chat_id]['extinguishers']}\n"
-            f"🔫 Снаряды: {all_ships[chat_id]['bullets']}\n")
-    await message.answer(text)
+    await message.answer(get_storage_text(all_ships[chat_id]), reply_markup=get_storage_inline_keyboard())
 
 
 # Выводит id пользователя
@@ -711,6 +716,31 @@ async def update_computer_text(callback: CallbackQuery):
             print("Ошибка при изменении сообщения компьютера: TelegramRetryAfter")
     else:
         print(f"Текст компьютера в чате {chat_id} совпадает с прошлым")
+        await callback.answer("Уже обновлено.")
+
+
+@dp.callback_query(F.data == "update_storage_text")
+async def update_storage_text(callback: CallbackQuery):
+    print("Обновляем текст склада")
+    chat_id = callback.message.chat.id
+    if not is_chat_active(chat_id):
+        await callback.answer()
+        return
+    new_text = get_storage_text(all_ships[chat_id])
+    if callback.message.text != new_text:
+        try:
+            await callback.answer()
+            await bot.edit_message_text(chat_id=chat_id,
+                                        message_id=callback.message.message_id,
+                                        text=new_text,
+                                        reply_markup=get_storage_inline_keyboard())
+            print(f"Текст склада в чате {chat_id} успешно обновлен")
+        except TelegramBadRequest:
+            print("Ошибка при изменении сообщения склада: TelegramBadRequest")
+        except TelegramRetryAfter:
+            print("Ошибка при изменении сообщения склада: TelegramRetryAfter")
+    else:
+        print(f"Текст склада в чате {chat_id} совпадает с прошлым")
         await callback.answer("Уже обновлено.")
 
 

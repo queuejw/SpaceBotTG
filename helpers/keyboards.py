@@ -9,6 +9,12 @@ def get_computer_inline_keyboard():
     builder.row(InlineKeyboardButton(text="Обновить", callback_data="update_computer_text"))
     return builder.as_markup()
 
+# Кнопка обновить для клада
+def get_storage_inline_keyboard():
+    builder = InlineKeyboardBuilder()
+    builder.row(InlineKeyboardButton(text="Обновить", callback_data="update_storage_text"))
+    return builder.as_markup()
+
 
 # Создает кнопки да и отмена для сообщения самоуничтожения
 def get_self_destruction_inline_keyboard():
