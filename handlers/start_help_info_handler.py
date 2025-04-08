@@ -32,7 +32,7 @@ async def info(message: Message):
         "находится в разработке, не все функции работают правильно.\n"
         "последнее обновление: 06.04.25\n"
         "сделал @queuejw\n"
-        f"исходный код бота: {github_link}"
+        f"подробная информация и исходный код бота: {github_link}"
     )
     image = FSInputFile("img/main.jpg")
     await message.answer_photo(image, caption=text)
