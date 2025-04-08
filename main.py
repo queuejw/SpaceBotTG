@@ -1000,12 +1000,12 @@ async def game_loop_events(chat_id: int):
     while is_chat_active(chat_id):
         if all_ships[chat_id]["on_planet"]:
             # события на планетах
-            if random.random() < 0.12:
+            if random.random() < 0.15:
                 # Ресурсы на планете
                 value = random.randint(50, 125)
                 all_ships[chat_id]["resources"] += value
                 await bot.send_message(chat_id, f"Мы нашли полезные ресурсы!\nПолучено {value} ресурсов")
-            if random.random() < 0.08:
+            if random.random() < 0.05:
                 # Аномалия на планете
                 value = random.randint(1, 3)
                 all_ships[chat_id]["ship_health"] -= value
@@ -1013,14 +1013,18 @@ async def game_loop_events(chat_id: int):
                                        f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
         else:
             # события в космосе
-            if random.random() < 0.03:
+            if random.random() < 0.02:
                 # Космический мусор
                 value = random.randint(1, 8)
                 all_ships[chat_id]["ship_health"] -= value
                 await bot.send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
+                if random.random() < 0.1 and not all_ships[chat_id]["engine_damaged"]:
+                    all_ships[chat_id]["engine_damaged"] = True
+                    await bot.send_message(chat_id, "Двигатель поврежден, максимальная скорость снижена! ⚠️")
             if random.random() < 0.02:
                 # Космическая аномалия
+                all_ships[chat_id]["distance"] = 0
                 all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
                 await bot.send_message(chat_id, f"Космическая аномалия!\nМы сбились с курса")
         # Здесь могут быть универсальные события
