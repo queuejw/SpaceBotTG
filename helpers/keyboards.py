@@ -40,6 +40,7 @@ def get_craft_keyboard():
     builder.row(
         InlineKeyboardButton(text="🧯  (100📦)", callback_data="craft_extinguisher"),
         InlineKeyboardButton(text="🔫  (50📦)", callback_data="craft_bullet"),
+        InlineKeyboardButton(text="⛽️ 10%  (75📦)", callback_data="craft_fuel"),
         InlineKeyboardButton(text="Выход", callback_data="craft_exit")
     )
     return builder.as_markup()

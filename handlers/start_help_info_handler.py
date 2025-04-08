@@ -1,6 +1,6 @@
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message
+from aiogram.types import Message, FSInputFile
 
 router = Router()
 
@@ -20,7 +20,8 @@ async def command_start_handler(message: Message):
         "Введи /играть , чтобы начать путешествие в мир космоса!🚀\n"
         "/инфо для информации о боте."
     )
-    await message.answer(text)
+    image = FSInputFile("img/main.jpg")
+    await message.answer_photo(image, caption=text)
 
 
 # Функция, которая вызывается командой /инфо
@@ -33,7 +34,8 @@ async def info(message: Message):
         "сделал @queuejw\n"
         f"исходный код бота: {github_link}"
     )
-    await message.answer(text)
+    image = FSInputFile("img/main.jpg")
+    await message.answer_photo(image, caption=text)
 
 
 # Функция, которая вызывается командой /помощь. Выводит текст со всеми возможными командами и их описанием.
@@ -43,4 +45,5 @@ async def commands(message: Message):
         f"Команды бота будут написаны здесь: {github_link}\n"
         "Путешествуйте по планетам, чтобы собирать ресурсы. С помощью ресурсов вы сможете ремонтировать корабль, создавать предметы и выполнять многие действия."
     )
-    await message.answer(text)
+    image = FSInputFile("img/main.jpg")
+    await message.answer_photo(image, caption=text)

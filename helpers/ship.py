@@ -26,5 +26,9 @@ def get_default_ship() -> dict:
         'extinguishers': random.randint(3, 6),  # Количество огнетушителей на складе
         'bullets': random.randint(3, 6),  # Количество снарядов на складе
         'captain': "null", # Капитан; участник, который первый запустил игру.
-        'crew': [] # Id участников, которые имеют доступ к боту
+        'crew': [], # Id участников, которые имеют доступ к боту
+        'engine_damaged': False, # Поврежден ли двигатель?
+        'fuel_tank_damaged': False, # Поврежден ли топливный бак?
+        'cannon_damaged': False # Повреждено ли орудие?
+
     }
