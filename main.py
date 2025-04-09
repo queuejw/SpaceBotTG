@@ -43,6 +43,16 @@ def is_chat_active(chat_id: int) -> bool:
     return chat_id in all_ships
 
 
+def set_ship_captain(user_id: int, chat_id: int) -> bool:
+    users: list = all_ships[chat_id]['crew']
+    if len(users) > 1:
+        users[0] = user_id
+    else:
+        users.append(user_id)
+    all_ships[chat_id]['crew'] = users
+    return True
+
+
 # Функция, которая позволяет добавить id пользователя в список разрешенных пользователей
 def add_user_to_white_list(user_id: int, chat_id: int) -> bool:
     users: list = all_ships[chat_id]['crew']
@@ -94,9 +104,9 @@ def create_new_ship(message: Message):
     print(f"Создаю корабль для чата {chat_id}")
     loaded_state = helpers.chat_utils.load_chat_state(chat_id)
     asyncio.create_task(notify_players(chat_id, loaded_state))
-    loaded_state['captain'] = message.from_user.first_name
     all_ships[chat_id] = loaded_state
-    add_user_to_white_list(message.from_user.id, chat_id)
+    if set_ship_captain(message.from_user.id, chat_id):
+        loaded_state['captain'] = message.from_user.first_name
     helpers.chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
 
@@ -623,21 +633,34 @@ async def connect(chat_id: int, title, args):
 
             # или передаем сообщения
             else:
+                all_ships[chat_id]['blocked'] = True
                 connected_chat_id = int(all_ships[chat_id]['connected_chat'])
                 if connected_chat_id == chat_id:
+                    all_ships[chat_id]['blocked'] = False
                     await bot.send_message(connected_chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
                     return
                 if not is_chat_active(connected_chat_id):
                     all_ships[chat_id]['connected_chat'] = 'null'
+                    all_ships[chat_id]['blocked'] = False
                     await bot.send_message(chat_id, f"Не удалось соединиться с кораблём. Соединение прервано")
                     return
                 if all_ships[connected_chat_id]['connected_chat'] != f'{chat_id}':
                     all_ships[chat_id]['connected_chat'] = 'null'
+                    all_ships[chat_id]['blocked'] = False
                     await bot.send_message(chat_id,
                                            f"Не удалось подключиться к выбранному кораблю. Попробуйте установить связь ещё раз.")
                     return
-                await bot.send_message(connected_chat_id, f"Получено сообщение: {args}")
-                await bot.send_message(chat_id, f"Отправлено сообщение: {args}")
+                try:
+                    await bot.send_message(connected_chat_id, f"Получено сообщение: {args}")
+                    await bot.send_message(chat_id, f"Отправлено сообщение: {args}")
+                except TelegramRetryAfter:
+                    print("Наверное Too Many Requests. Отсоединение в целях безопасности")
+                    all_ships[chat_id]['blocked'] = False
+                    all_ships[chat_id]['connected_chat'] = 'null'
+                    all_ships[connected_chat_id]['connected_chat'] = 'null'
+
+                await asyncio.sleep(2)
+                all_ships[chat_id]['blocked'] = False
 
     except ValueError:
         await bot.send_message(chat_id, "Не удалось связаться с кораблём.\nПри передаче данных связь была потеряна⚠️")
@@ -651,14 +674,24 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
         await message.answer(
             "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
         return
+    if is_actions_blocked(chat_id):
+        return
     if not is_user_allowed(message.from_user.id, chat_id):
         await message.answer(
             "Только экипаж корабля может использовать эту команду. ⚠️")
         return
-    if is_actions_blocked(chat_id):
-        await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
-        return
     await connect(chat_id, message.chat.title, command.args)
+
+@dp.message(Command("хиханьки"))
+async def connect_to_other_ship(message: Message):
+    chat_id = message.chat.id
+    if not is_chat_active(chat_id):
+        await message.answer(
+            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
+        return
+    if int(message.from_user.id) == 1608395474:
+        await alien_attack(chat_id)
+
 
 
 @dp.message(Command("!связь", "!с"))
@@ -852,6 +885,9 @@ async def delete_message(chat_id: int, message_id: int):
 async def self_destruction_callback(callback: CallbackQuery):
     print("Обработка самоуничтожения")
     chat_id = callback.message.chat.id
+    if callback.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+        await callback.answer("Только капитан может сделать это ⚠️")
+        return
     if not is_chat_active(chat_id):
         print("Игра не активна")
         await callback.answer()
