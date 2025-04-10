@@ -2,11 +2,9 @@ from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, FSInputFile
 
+from helpers.utils import github_link
+
 router = Router()
-
-# ссылка на наш GitHUb
-github_link = "https://github.com/queuejw/SpaceBotTG"
-
 
 # Функция, которая вызывается командой /start
 @router.message(CommandStart())
@@ -30,7 +28,7 @@ async def info(message: Message):
     text = (
         "открытый космос - игровой бот для вашего чата.👽\n"
         "находится в разработке, не все функции работают правильно.\n"
-        "последнее обновление: 09.04.25\n"
+        "последнее обновление: 10.04.25\n"
         "сделал @queuejw\n"
         f"подробная информация и исходный код бота: {github_link}"
     )

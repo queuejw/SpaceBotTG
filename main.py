@@ -13,21 +13,23 @@ from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
-from aiogram.filters import Command, CommandObject
+from aiogram.filters import Command, CommandObject, ChatMemberUpdatedFilter, IS_NOT_MEMBER, IS_MEMBER
 from aiogram.methods import DeleteWebhook
-from aiogram.types import Message, CallbackQuery
+from aiogram.types import Message, CallbackQuery, ChatMemberUpdated
 
 import helpers.chat_utils
 from handlers import start_help_info_handler
 from helpers.keyboards import get_computer_inline_keyboard, get_self_destruction_inline_keyboard, \
     get_fire_inline_keyboard, get_craft_keyboard, get_storage_inline_keyboard
+from helpers.utils import github_link
 
 all_ships = {}
 
 
 # Удаляет чат из all_ships
 def remove_chat_from_all_ships(chat_id: int):
-    all_ships.pop(chat_id)
+    if is_chat_active(chat_id):
+        all_ships.pop(chat_id)
 
 
 REPAIR_EMOJI = ["🔨", "⚒️", "🛠", "⛏️", "🪚", "⚙️", "🔧", "🪛"]
@@ -107,6 +109,9 @@ def create_new_ship(message: Message):
     all_ships[chat_id] = loaded_state
     if set_ship_captain(message.from_user.id, chat_id):
         loaded_state['captain'] = message.from_user.first_name
+    # Во избежание проблем сбрасываем пришельцев и пожары
+    loaded_state['fire'] = False
+    loaded_state['alien_attack'] = False
     helpers.chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
 
@@ -128,6 +133,11 @@ async def play(message: Message):
         "Добавить новых членов экипажа можно командой /добавить . Посмотрите список команд."
     )
     await message.answer(text)
+
+
+def stop_game(chat_id: int):
+    remove_chat_from_all_ships(chat_id)
+    helpers.chat_utils.delete_chat_state(chat_id)
 
 
 # Ограничивает значение в пределах минимального и максимального.
@@ -220,7 +230,7 @@ async def add_user(message: Message, command: CommandObject):
 
 
 @dp.message(Command("удалить"))
-async def add_user(message: Message, command: CommandObject):
+async def del_user(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
         await message.answer(
@@ -326,6 +336,8 @@ async def change_ship_name(message: Message, command: CommandObject):
 
 # Функция для имитирования полета
 async def fly(chat_id: int, planet_name: str):
+    if not is_chat_active(chat_id):
+        return
     if all_ships[chat_id]["on_planet"]:
         await bot.send_message(chat_id,
                                "Чтобы улететь на другую планету, нужно покинуть текущую.\nПопробуйте ввести команду /покинуть")
@@ -340,6 +352,8 @@ async def fly(chat_id: int, planet_name: str):
     # уведомляем игроков
     await bot.send_message(chat_id, f"Посадка на планету {planet_name} через {time} секунд")
     await asyncio.sleep(time)
+    if not is_chat_active(chat_id):
+        return
     # обновляем данные и отменяем блокировку действий
     all_ships[chat_id]["on_planet"] = True
     all_ships[chat_id]["blocked"] = False
@@ -388,6 +402,8 @@ async def fly_command(message: Message, command: CommandObject):
 
 # Функция взлёта с планета
 async def leave_planet(chat_id: int):
+    if not is_chat_active(chat_id):
+        return
     if not all_ships[chat_id]["on_planet"]:
         await bot.send_message(chat_id, "Невозможно покинуть планету\nВы не на планете")
         return
@@ -401,6 +417,8 @@ async def leave_planet(chat_id: int):
     # уведомляем игроков
     await bot.send_message(chat_id, f"Покидаем планету {all_ships[chat_id]["planet_name"]} через {time} секунд")
     await asyncio.sleep(time)
+    if not is_chat_active(chat_id):
+        return
     # обновляем данные и отменяем блокировку действий
     all_ships[chat_id]["on_planet"] = False
     all_ships[chat_id]["blocked"] = False
@@ -464,6 +482,7 @@ async def repair(chat_id: int):
     all_ships[chat_id]['air_leaking'] = False
     check_data(all_ships[chat_id], chat_id)
     await bot.send_message(chat_id, "Ремонт завершён")
+
 
 # Функция для проверки корабля на наличие повреждений
 def is_ship_damaged(ship: dict) -> bool:
@@ -654,10 +673,8 @@ async def connect(chat_id: int, title, args):
                     await bot.send_message(connected_chat_id, f"Получено сообщение: {args}")
                     await bot.send_message(chat_id, f"Отправлено сообщение: {args}")
                 except TelegramRetryAfter:
-                    print("Наверное Too Many Requests. Отсоединение в целях безопасности")
+                    print("Наверное Too Many Requests. ")
                     all_ships[chat_id]['blocked'] = False
-                    all_ships[chat_id]['connected_chat'] = 'null'
-                    all_ships[connected_chat_id]['connected_chat'] = 'null'
 
                 await asyncio.sleep(2)
                 all_ships[chat_id]['blocked'] = False
@@ -681,17 +698,6 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
             "Только экипаж корабля может использовать эту команду. ⚠️")
         return
     await connect(chat_id, message.chat.title, command.args)
-
-@dp.message(Command("хиханьки"))
-async def connect_to_other_ship(message: Message):
-    chat_id = message.chat.id
-    if not is_chat_active(chat_id):
-        await message.answer(
-            "Не получилось отправить команду\nНет соединения с кораблем. ⚠️\nПопробуйте ввести команду /играть")
-        return
-    if int(message.from_user.id) == 1608395474:
-        await alien_attack(chat_id)
-
 
 
 @dp.message(Command("!связь", "!с"))
@@ -798,9 +804,32 @@ async def update_storage_text(callback: CallbackQuery):
         await callback.answer("Уже обновлено.")
 
 
+# Функция для повреждения двигателя
+async def destroy_engine(chat_id: int, chance: float):
+    # Если повезет, то ломаем двигатель
+    if random.random() < chance and not all_ships[chat_id]["engine_damaged"]:
+        all_ships[chat_id]["engine_damaged"] = True
+        await bot.send_message(chat_id, "Двигатель поврежден, максимальная скорость снижена! ⚠️")
+
+
+# Функция для повреждения топливного бака
+async def destroy_fuel_tank(chat_id: int, chance: float):
+    # Если повезет, то ломаем бак
+    if random.random() < chance and not all_ships[chat_id]["fuel_tank_damaged"]:
+        all_ships[chat_id]["fuel_tank_damaged"] = True
+        await bot.send_message(chat_id, "Пробит топливный бак! ⚠️")
+
+
+# Функция для повреждения орудия
+async def destroy_cannon(chat_id: int, chance: float):
+    # Если повезет, то ломаем орудие
+    if random.random() < chance and not all_ships[chat_id]["cannon_damaged"]:
+        all_ships[chat_id]["cannon_damaged"] = True
+        await bot.send_message(chat_id, "Орудие повреждено, точность стрельбы снижена! ⚠️")
+
+
 # Механика пожаров
 async def fire_func(chat_id: int):
-    await bot.send_message(chat_id, "🔥")
     await bot.send_message(chat_id, "🔥Корабль горит!🔥", reply_markup=get_fire_inline_keyboard())
     if all_ships[chat_id]['connected_chat'] != 'null':
         # Уведомляем соединенный чат о пожаре на корабле
@@ -814,10 +843,14 @@ async def fire_func(chat_id: int):
                 await bot.send_message(c_chat_id,
                                        f"Корабль {all_ships[chat_id]['ship_name']} горит!")
 
+    await bot.send_message(chat_id, "🔥")
     while True:
         if not is_chat_active(chat_id):
             break
         if not all_ships[chat_id]["fire"]:
+            break
+        # Если прочность корабля на нуле завершаем пожар
+        if int(all_ships[chat_id]["ship_health"]) < 1:
             break
 
         if random.random() > 0.15:
@@ -831,16 +864,11 @@ async def fire_func(chat_id: int):
         if random.random() > 0.25:
             all_ships[chat_id]["crew_oxygen"] -= random.randint(2, 5)
 
-        if random.random() < 0.05 and not all_ships[chat_id]["engine_damaged"]:
-            all_ships[chat_id]["engine_damaged"] = True
-            await bot.send_message(chat_id, "Двигатель поврежден, максимальная скорость снижена! ⚠️")
+        await destroy_engine(chat_id, 0.05)
+        await destroy_fuel_tank(chat_id, 0.05)
 
-        if random.random() < 0.05 and not all_ships[chat_id]["fuel_tank_damaged"]:
-            all_ships[chat_id]["fuel_tank_damaged"] = True
-            await bot.send_message(chat_id, "Пробит топливный бак! ⚠️")
+        check_data(all_ships[chat_id], chat_id)
 
-        if random.random() < 0.1:
-            await bot.send_message(chat_id, "🔥")
         await asyncio.sleep(3)
 
 
@@ -868,6 +896,9 @@ async def fire_callback(callback: CallbackQuery):
     await bot.send_message(chat_id, "Тушим корабль ... 🧯")
     for _ in range(random.randint(4, 7)):
         await asyncio.sleep(1)
+    if not is_chat_active(chat_id):
+        print("Игра не активна")
+        return
     await bot.send_message(chat_id, "Пожар потушен!🧯✅")
     all_ships[chat_id]['extinguishers'] -= 1
     all_ships[chat_id]["blocked"] = False
@@ -1004,7 +1035,13 @@ async def alien_attack(chat_id: int):
                 await bot.send_message(c_chat_id,
                                        f"Корабль {all_ships[chat_id]['ship_name']} атакуют пришельцы!")
     while is_chat_active(chat_id) and all_ships[chat_id]['alien_attack']:
-        if random.random() < 0.05:
+        if not all_ships[chat_id]['alien_attack']:
+            return
+        if int(all_ships[chat_id]['ship_health']) < 1:
+            all_ships[chat_id]['alien_attack'] = False
+            await bot.send_message(chat_id, "Пришельцы улетели! 👽")
+            break
+        if random.random() < 0.2:
             all_ships[chat_id]['ship_health'] = clamp(all_ships[chat_id]['ship_health'] - random.randint(1, 10), 0, 100)
             await bot.send_message(chat_id,
                                    f"Пришельцы попали в нас 👽!\nПрочность корабля: {all_ships[chat_id]['ship_health']}%")
@@ -1013,18 +1050,9 @@ async def alien_attack(chat_id: int):
                 all_ships[chat_id]["fire"] = True
                 await fire_func(chat_id)
 
-            if random.random() < 0.1 and not all_ships[chat_id]["engine_damaged"]:
-                all_ships[chat_id]["engine_damaged"] = True
-                await bot.send_message(chat_id, "Двигатель поврежден, максимальная скорость снижена! ⚠️")
-
-            if random.random() < 0.1 and not all_ships[chat_id]["fuel_tank_damaged"]:
-                all_ships[chat_id]["fuel_tank_damaged"] = True
-                await bot.send_message(chat_id, "Пробит топливный бак! ⚠️")
-
-            if random.random() < 0.1 and not all_ships[chat_id]["cannon_damaged"]:
-                all_ships[chat_id]["cannon_damaged"] = True
-                await bot.send_message(chat_id, "Орудие повреждено, точность стрельбы снижена! ⚠️")
-
+            await destroy_engine(chat_id, 0.1)
+            await destroy_fuel_tank(chat_id, 0.1)
+            await destroy_cannon(chat_id, 0.1)
 
         await asyncio.sleep(5)
 
@@ -1047,17 +1075,16 @@ async def game_loop_events(chat_id: int):
                 all_ships[chat_id]["ship_health"] -= value
                 await bot.send_message(chat_id,
                                        f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
+                await destroy_engine(chat_id, 0.2)
         else:
             # события в космосе
             if random.random() < 0.02:
                 # Космический мусор
-                value = random.randint(1, 8)
+                value = random.randint(1, 5)
                 all_ships[chat_id]["ship_health"] -= value
                 await bot.send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
-                if random.random() < 0.1 and not all_ships[chat_id]["engine_damaged"]:
-                    all_ships[chat_id]["engine_damaged"] = True
-                    await bot.send_message(chat_id, "Двигатель поврежден, максимальная скорость снижена! ⚠️")
+                await destroy_engine(chat_id, 0.2)
             if random.random() < 0.02:
                 # Космическая аномалия
                 all_ships[chat_id]["distance"] = 0
@@ -1092,14 +1119,11 @@ async def game_loop(chat_id: int):
         else:
             # Если бак поврежден, убавляем топливо
             if all_ships[chat_id]['fuel_tank_damaged'] and random.random() < 0.15:
-                 all_ships[chat_id]["ship_fuel"] -= 1
+                all_ships[chat_id]["ship_fuel"] -= 1
 
             # Изменяем скорость корабля и пройденный путь
-            if not all_ships[chat_id]['engine_damaged']:
-                all_ships[chat_id]["ship_speed"] = random.randint(28000, 64000)
-            else:
-                all_ships[chat_id]["ship_speed"] = random.randint(10000, 24000)
-
+            all_ships[chat_id]["ship_speed"] = random.randint(28000, 64000) if not all_ships[chat_id][
+                'engine_damaged'] else random.randint(10000, 24000)
             all_ships[chat_id]["distance"] += round(all_ships[chat_id]["ship_speed"] / 60)
 
             if warned_of_empty_fuel:
@@ -1134,14 +1158,27 @@ async def game_loop(chat_id: int):
         # завершаем игру если здоровье экипажа меньше 1 (0)
         if all_ships[chat_id]["crew_health"] < 1:
             await bot.send_message(chat_id, "Игра завершена!\nЭкипаж выведен из строя. ⚠️")
-            remove_chat_from_all_ships(chat_id)
-            helpers.chat_utils.delete_chat_state(chat_id)
+            stop_game(chat_id)
             break
         # Проверка данных во избежание проблем
         check_data(all_ships[chat_id], chat_id)
         # Ожидаем 5 секунд перед началом следующей итерации
         await asyncio.sleep(5)
-    await bot.send_message(chat_id, "Конец.")
+
+
+# Если добавляют бота, отправляем приветствие
+@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_NOT_MEMBER >> IS_MEMBER))
+async def admin_handler(event: ChatMemberUpdated):
+    await event.answer(
+        f"Привет! Добро пожаловать в открытый космос 💫🪐☄️\nНачать игру можно командой /играть. \nПодробная информация будет здесь: {github_link}\n\n⚠️ Возможно, боту понадобятся права администратора. Проверьте их, иначе он не сможет отвечать на команды")
+
+
+# Если бота удаляют (по каким-то причинам), то принудительно завершаем игру.
+@dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER))
+async def not_member_handler(event: ChatMemberUpdated):
+    chat_id = event.chat.id
+    print(f"Бота удалили из чата {event.chat.id}, завершаем игру.")
+    stop_game(chat_id)
 
 
 # Функция, которая вызывается при запуске бота
