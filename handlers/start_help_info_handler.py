@@ -6,6 +6,7 @@ from helpers.utils import github_link
 
 router = Router()
 
+
 # Функция, которая вызывается командой /start
 @router.message(CommandStart())
 async def command_start_handler(message: Message):

@@ -9,17 +9,14 @@ DATA_DIR = "ships"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
-# Функция для получения токена бота из файла token.txt
-def get_token() -> str:
-    token_file = "token.txt"
-    if os.path.exists(token_file):
-        with open(token_file, "r") as f:
+# Функция для получения данных из файлв
+def get_file(file_name: str) -> str:
+    if os.path.exists(file_name):
+        with open(file_name, "r") as f:
             result = f.read()
             f.close()
             return result
-    # Если не получится, то останавливаем
-    print("Токен не найден. Остановка.")
-    exit(1)
+    return "null"
 
 
 # Функция для получения списка планет
