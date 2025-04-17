@@ -9,16 +9,6 @@ DATA_DIR = "ships"
 os.makedirs(DATA_DIR, exist_ok=True)
 
 
-# Функция для получения данных из файлв
-def get_file(file_name: str) -> str:
-    if os.path.exists(file_name):
-        with open(file_name, "r") as f:
-            result = f.read()
-            f.close()
-            return result
-    return "null"
-
-
 # Функция для получения списка планет
 def get_planets():
     pl_file = "planets.txt"
@@ -33,7 +23,6 @@ def get_planets():
 
 
 def get_chat_folder(chat_id: int) -> str:
-    print(f"Получаю папку для чата {chat_id}")
     return os.path.join(DATA_DIR, str(chat_id))
 
 
@@ -57,8 +46,10 @@ def load_chat_state(chat_id: int) -> dict:
     state_file = get_chat_state_file(chat_id)
 
     if os.path.exists(state_file):
-        with open(state_file, "r") as f:
-            return json.load(f)
+        with open(state_file, "r", encoding="utf-8") as f:
+            ship = json.load(f)
+            f.close()
+            return ship
 
     # Если файл не существует, инициализируем новое состояние
     print(f"Не получилось получить корабль, возвращаем стандартный.")
@@ -73,4 +64,5 @@ def save_chat_state(chat_id: int, state: dict):
 
     state_file = get_chat_state_file(chat_id)
     with open(state_file, "w", encoding="utf-8") as f:
-        f.write(json.dumps(state))
+        f.write(json.dumps(state, indent=4, ensure_ascii=False))
+        f.close()

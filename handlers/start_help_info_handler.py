@@ -45,5 +45,4 @@ async def commands(message: Message):
         "\n"
         "Путешествуйте по планетам, чтобы собирать ресурсы. С помощью ресурсов вы сможете ремонтировать корабль, создавать предметы и выполнять многие действия.\nИщите новых друзей из других чатов, используя команду /связь"
     )
-    image = FSInputFile("img/main.jpg")
-    await message.answer_photo(image, caption=text)
+    await message.answer(text)

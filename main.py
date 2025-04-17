@@ -12,13 +12,15 @@ from types import NoneType
 from aiogram import Bot, Dispatcher, F
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
+from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter, TelegramNetworkError
 from aiogram.filters import Command, CommandObject, ChatMemberUpdatedFilter, IS_NOT_MEMBER, IS_MEMBER
 from aiogram.methods import DeleteWebhook
 from aiogram.types import Message, CallbackQuery, ChatMemberUpdated
 
-import helpers.chat_utils
 from handlers import start_help_info_handler
+from helpers import chat_utils
+from helpers.bot_utils import load_config, save_config
+from helpers.crew import get_default_crew
 from helpers.keyboards import get_computer_inline_keyboard, get_self_destruction_inline_keyboard, \
     get_fire_inline_keyboard, get_craft_keyboard, get_storage_inline_keyboard
 from helpers.utils import github_link
@@ -32,12 +34,22 @@ def remove_chat_from_all_ships(chat_id: int):
         all_ships.pop(chat_id)
 
 
-TOKEN = helpers.chat_utils.get_file("token.txt")
-if TOKEN == "null":
-    print("Невозможно продолжить запуск. Проверьте файл token.txt")
-    exit(1)
-PLANETS = helpers.chat_utils.get_planets()
+CONFIG = load_config()
 
+BLOCKED_CHATS: list = CONFIG['blacklist']
+ADMINS: list = CONFIG['administrators']
+
+if len(CONFIG) == 0:
+    print("Проверьте файл конфигурации.")
+    exit(1)
+
+TOKEN = CONFIG['token']
+
+if TOKEN == "":
+    print("Невозможно продолжить запуск. Проверьте токен в файле конфигурации")
+    exit(1)
+
+PLANETS = chat_utils.get_planets()
 REPAIR_EMOJI = ["🔨", "⚒️", "🛠", "⛏️", "🪚", "⚙️", "🔧", "🪛"]
 
 dp = Dispatcher()
@@ -49,44 +61,47 @@ def is_chat_active(chat_id: int) -> bool:
     return chat_id in all_ships
 
 
-def set_ship_captain(user_id: int, chat_id: int) -> bool:
-    users: list = all_ships[chat_id]['crew']
-    if len(users) > 1:
-        users[0] = user_id
-    else:
-        users.append(user_id)
-    all_ships[chat_id]['crew'] = users
-    return True
-
-
-# Функция, которая позволяет добавить id пользователя в список разрешенных пользователей
-def add_user_to_white_list(user_id: int, chat_id: int) -> bool:
-    users: list = all_ships[chat_id]['crew']
-    if len(users) > 1:
+# Функция, которая позволяет добавить пользователя в список разрешенных пользователей
+def add_user_to_white_list(user_id: int, chat_id: int, user_name: str, user_role: int) -> bool:
+    if len(all_ships[chat_id]['crew']) > 1:
         # Возвращаем False, если капитан пытается добавить самого себя
-        if user_id == users[0]:
+        if user_id == all_ships[chat_id]['crew'][0]['user_id']:
             return False
-    users.append(user_id)
-    all_ships[chat_id]['crew'] = users
+    captain = get_default_crew()
+    captain["user_name"] = user_name
+    captain["user_role"] = user_role
+    captain["user_id"] = user_id
+    all_ships[chat_id]['crew'].append(captain)
     return True
 
 
-# Функция, которая позволяет удалить id пользователя из списка разрешенных пользователей
+# Функция, которая позволяет удалить пользователя из списка разрешенных пользователей
 def del_user_from_white_list(user_id: int, chat_id: int) -> bool:
-    users: list = all_ships[chat_id]['crew']
-    if len(users) > 1:
+    if len(all_ships[chat_id]['crew']) > 1:
         # Возвращаем False, если капитан пытается удалить самого себя
-        if user_id == users[0]:
+        if user_id == all_ships[chat_id]['crew'][0]['user_id']:
             return False
-    users.remove(user_id)
-    all_ships[chat_id]['crew'] = users
-    return True
+        for i in all_ships[chat_id]['crew']:
+            if i['user_id'] == user_id:
+                all_ships[chat_id]['crew'].remove(i)
+                return True
+    return False
 
 
-#  Вернет True, если id пользователя есть в списке разрешенных
-def is_user_allowed(user_id: int, chat_id: int) -> bool:
-    users: list = all_ships[chat_id]['crew']
-    return user_id in users
+#  Вернет True, если id пользователя есть в списке
+def exist_user_by_id(chat_id: int, user_id: int) -> bool:
+    for i in all_ships[chat_id]['crew']:
+        if i['user_id'] == user_id:
+            return True
+    return False
+
+
+#  Вернет True, если имя пользователя есть в списке
+def exist_user_by_name(chat_id: int, user_name: str) -> bool:
+    for i in all_ships[chat_id]['crew']:
+        if i['user_name'] == user_name:
+            return True
+    return False
 
 
 # Вернет True, если выполнение действий в данных момент запрещено
@@ -94,12 +109,25 @@ def is_actions_blocked(chat_id: int) -> bool:
     return all_ships[chat_id]['blocked']
 
 
+# Вернет True, если чат заблокирован
+def is_chat_banned(chat_id) -> bool:
+    if chat_id in BLOCKED_CHATS:
+        print(f"{chat_id} Заблокирован, возвращаем False")
+        return True
+    else:
+        return False
+
+
 async def can_proceed(message: Message) -> bool:
+    if is_chat_banned(message.chat.id):
+        await message.answer(
+            "🪐❌ Ваш чат был заблокирован. \nЕсли вы считаете, что это была ошибка, свяжитесь со мной: @queuejw")
+        return False
     if not is_chat_active(message.chat.id):
         await message.answer(
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return False
-    if not is_user_allowed(message.from_user.id, message.chat.id):
+    if not exist_user_by_id(message.chat.id, message.from_user.id):
         await message.answer(
             "Только экипаж корабля может использовать эту команду. ⚠️")
         return False
@@ -109,35 +137,38 @@ async def can_proceed(message: Message) -> bool:
     return True
 
 
-# Уведомляем пользователей о том, что было загружено сохранение
-async def notify_players(chat_id: int, loaded_state: dict):
-    # Уведомляем, что загружено сохранение.
-    if not loaded_state['default']:
-        await bot.send_message(chat_id, "Загружено последнее сохранение. ☀️")
-    else:
-        # Помечаем, что корабль не является дефолтным
-        loaded_state['default'] = False
+# Создает капитана
+def create_captain_user_dict(user_name: str, user_id: int) -> dict:
+    captain = get_default_crew()
+    captain["user_name"] = user_name
+    captain["user_role"] = 1
+    captain["user_id"] = user_id
+    return captain
 
 
 # Функция для создания нового корабля в чате
 def create_new_ship(message: Message):
     chat_id = message.chat.id
     print(f"Создаю корабль для чата {chat_id}")
-    loaded_state = helpers.chat_utils.load_chat_state(chat_id)
-    asyncio.create_task(notify_players(chat_id, loaded_state))
-    all_ships[chat_id] = loaded_state
-    if set_ship_captain(message.from_user.id, chat_id):
-        loaded_state['captain'] = message.from_user.first_name
+    loaded_state = chat_utils.load_chat_state(chat_id)
+    # Если на корабле никого нет, то создаем капитана
+    if len(loaded_state['crew']) < 1:
+        loaded_state['crew'].append(create_captain_user_dict(message.from_user.first_name, message.from_user.id))
     # Во избежание проблем сбрасываем пришельцев и пожары
     loaded_state['fire'] = False
     loaded_state['alien_attack'] = False
-    helpers.chat_utils.save_chat_state(chat_id, all_ships[chat_id])
+    all_ships[chat_id] = loaded_state
+    chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
 
 # Создание корабля для чата
 @dp.message(Command("играть"))
 async def play(message: Message):
     chat_id = message.chat.id
+    if is_chat_banned(chat_id):
+        await message.answer(
+            "🪐❌ Ваш чат был заблокирован. \nЕсли вы считаете, что это была ошибка, свяжитесь со мной: @queuejw")
+        return
     if is_chat_active(chat_id):
         await message.answer("Не удалось запустить корабль в космос:\nИгра активна. ⚠️")
         return
@@ -149,14 +180,20 @@ async def play(message: Message):
     text = (
         "🚀Игра началась!\n"
         "Введите команду /помощь , чтобы узнать все команды бота.\n"
-        "Добавить новых членов экипажа можно командой /добавить . Посмотрите список команд."
+        "Добавить новых членов экипажа можно командой /добавить . Посмотрите список команд.\n"
     )
+    if not all_ships[chat_id]['default']:
+        text = text + "ℹ️ Загружено последнее сохранение"
+    else:
+        all_ships[chat_id]['default'] = False
+
     await message.answer(text)
 
 
+# Останавливает игру и удаляет файл сохранения
 def stop_game(chat_id: int):
     remove_chat_from_all_ships(chat_id)
-    helpers.chat_utils.delete_chat_state(chat_id)
+    chat_utils.delete_chat_state(chat_id)
 
 
 # Ограничивает значение в пределах минимального и максимального.
@@ -167,13 +204,14 @@ def clamp(value, min_value, max_value):
 # Функция для получения текста сообщения компьютера
 def get_computer_text(chat_id: int) -> str:
     state = all_ships[chat_id]
+    captain = all_ships[chat_id]['crew'][0]['user_name']
     if not state["on_planet"]:
         # В космосе
         text = (
             "📺БОРТОВОЙ КОМПЬЮТЕР📺\n"
             "=============\n"
             f"🚀Корабль {state['ship_name']}\n"
-            f"👑 Капитан корабля: {state['captain']}\n"
+            f"👑 Капитан корабля: {captain}\n"
             "=============\n"
             f"📏Расстояние: {state['distance']} км\n"
             f"🪐Следующий объект: {state['next_planet_name']}\n"
@@ -184,7 +222,7 @@ def get_computer_text(chat_id: int) -> str:
             f"🚀Скорость корабля: {state['ship_speed']} км/ч\n"
             "=============\n"
             f"❤️Здоровье экипажа: {state['crew_health']}%\n"
-            f"💨Уровень воздуха: {state['crew_oxygen']}%\n"
+            f"💨Уровень воздуха: {state['oxygen']}%\n"
             f"📦Количество ресурсов: {state['resources']}\n"
         )
         return text
@@ -194,7 +232,7 @@ def get_computer_text(chat_id: int) -> str:
             "📺БОРТОВОЙ КОМПЬЮТЕР📺\n"
             "=============\n"
             f"🚀Корабль {state['ship_name']}\n"
-            f"👑 Капитан корабля: {state['captain']}\n"
+            f"👑 Капитан корабля: {captain}\n"
             "=============\n"
             f"🌎Мы находимся на планете: {state['planet_name']}\n"
             "=============\n"
@@ -202,7 +240,7 @@ def get_computer_text(chat_id: int) -> str:
             f"⛽️Уровень топлива: {state['ship_fuel']}%\n"
             "=============\n"
             f"❤️Здоровье экипажа: {state['crew_health']}%\n"
-            f"💨Уровень воздуха: {state['crew_oxygen']}%\n"
+            f"💨Уровень воздуха: {state['oxygen']}%\n"
             f"📦Количество ресурсов: {state['resources']}\n"
         )
     return text
@@ -212,10 +250,110 @@ def get_computer_text(chat_id: int) -> str:
 @dp.message(Command("компьютер", "к"))
 async def computer(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     text = get_computer_text(chat_id)
     await message.answer(text, reply_markup=get_computer_inline_keyboard())
+
+
+def get_crew_role_by_num(value: int) -> str:
+    match value:
+        case 1:
+            return "Капитан"
+        case 2:
+            return "не придумал"
+        case _:
+            return "Член экипажа"
+
+
+# Функция для получения текста сообщения экипажа
+def get_crew_text(chat_id) -> str:
+    text = f"Экипаж корабля {all_ships[chat_id]['ship_name']}:\n\n"
+    for i in all_ships[chat_id]['crew']:
+        text = text + f"👤 {i['user_name']} : {get_crew_role_by_num(i['user_role'])}\n"
+    return text
+
+
+def get_crew_str(item: dict) -> str:
+    return (
+        f"👤 {item['user_name']}:\n"
+        "=====\n"
+        f"⭐ Роль: {get_crew_role_by_num(item['user_role'])}\n"
+        f"❤️ Здоровье: {item['user_health']}%\n"
+    )
+
+
+# Выводит информацию об экипаже корабля чата
+def get_specific_crew_text(chat_id: int, user_data) -> str:
+    is_int = type(user_data) == type(0)
+    for i in all_ships[chat_id]['crew']:
+        if is_int:
+            if i['user_id'] == int(user_data):
+                return get_crew_str(i)
+        else:
+            if i['user_name'] == str(user_data):
+                return get_crew_str(i)
+
+    return "⚠️ Компьютер не нашёл этого члена экипажа.\n"
+
+
+def is_it_int(value: str) -> bool:
+    try:
+        int(value)
+        return True
+    except ValueError:
+        return False
+
+
+# Выводит список игроков либо информацию о конкретном игроке
+@dp.message(Command("экипаж", "э"))
+async def crew(message: Message, command: CommandObject):
+    chat_id = message.chat.id
+    if not await can_proceed(message):
+        return
+    # Если ник не был указан, то отправляем список участников
+    if command.args is None:
+        text = get_crew_text(chat_id)
+        await message.answer(text)
+    else:
+        # Проверяем, что данный пользователь существует и отправляем сообщение
+        value: bool
+        if not is_it_int(command.args):
+            value = exist_user_by_name(chat_id, command.args)
+        else:
+            value = exist_user_by_id(chat_id, int(command.args))
+
+        text = get_specific_crew_text(chat_id, command.args) if not is_it_int(command.args) else get_specific_crew_text(
+            chat_id, int(command.args))
+        if value:
+            await message.answer(text)
+        else:
+            await message.answer(text + "Возможно, вы ошиблись с вводом имени или id члена экипажа.")
+
+
+# Выводит информацию об игроке, который ввел эту команду
+@dp.message(Command("я"))
+async def about_me(message: Message):
+    chat_id = message.chat.id
+    if not await can_proceed(message):
+        return
+    text = get_specific_crew_text(chat_id, message.from_user.id)
+    await message.answer(text)
+
+
+@dp.message(Command("пауза"))
+async def pause_game(message: Message):
+    chat_id = message.chat.id
+    if not await can_proceed(message):
+        return
+    # Только капитан может сделать это
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
+        await message.answer("Только капитан может остановить игру.")
+        return
+    chat_utils.save_chat_state(chat_id, all_ships[chat_id])
+    remove_chat_from_all_ships(chat_id)
+    await message.answer(
+        "Игра остановлена! ✅\nℹ️ Продолжить игру можно командой /играть (загрузится последнее сохранение)")
 
 
 @dp.message(Command("добавить"))
@@ -226,7 +364,7 @@ async def add_user(message: Message, command: CommandObject):
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     # Только капитан может сделать это
-    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await message.answer("Только капитан может добавить участников на борт ⚠️")
         return
     # Если аргументов нет, то мы не можем добавить участников
@@ -234,12 +372,15 @@ async def add_user(message: Message, command: CommandObject):
         await message.answer("Не получилось отправить команду\nВы не указали ID участника⚠️")
         return
     try:
-        if add_user_to_white_list(int(command.args), chat_id):
-            await message.answer("Успешно! Новый член экипажа успешно добавлен. ✅")
+        user = await bot.get_chat_member(chat_id, int(command.args))
+        if add_user_to_white_list(int(command.args), chat_id, user.user.first_name, 0):
+            await message.answer(f"Успешно! {user.user.first_name} теперь член экипажа корабля. ✅")
         else:
             await message.answer("Не получилось добавить нового игрока ⚠️")
     except ValueError:
         await message.answer("Не получилось добавить нового игрока ⚠️")
+    except TelegramBadRequest:
+        await message.answer("Компьютер не нашёл этого участника ⚠️")
 
 
 @dp.message(Command("удалить"))
@@ -250,14 +391,14 @@ async def del_user(message: Message, command: CommandObject):
             "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     # Только капитан может сделать это
-    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await message.answer("Только капитан может удалить участников ⚠️")
         return
     # Если аргументов нет, то мы не можем удалить участников
     if command.args is None:
         await message.answer("Не получилось отправить команду\nВы не указали ID участника ⚠️")
         return
-    if is_user_allowed(int(command.args), chat_id):
+    if exist_user_by_id(chat_id, int(command.args)):
         try:
             if del_user_from_white_list(int(command.args), chat_id):
                 await message.answer("Успешно! Член экипажа выброшен в открытый космос. ✅")
@@ -283,7 +424,7 @@ def get_storage_text(state: dict) -> str:
 @dp.message(Command("склад"))
 async def storage(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
 
     await message.answer(get_storage_text(all_ships[chat_id]), reply_markup=get_storage_inline_keyboard())
@@ -316,7 +457,7 @@ async def change_ship_name(message: Message, command: CommandObject):
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return
     # Только капитан может сделать это
-    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await message.answer("Только капитан может изменить название корабля ⚠️")
         return
     # Если аргументов нет, то мы не можем переименовать корабль
@@ -384,7 +525,7 @@ async def fly(chat_id: int, planet_name: str):
 @dp.message(Command("лететь"))
 async def fly_command(message: Message, command: CommandObject):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     # Если аргументов нет, то летим на ближайшую (следующую) планету
     name = command.args
@@ -440,7 +581,7 @@ async def leave_planet(chat_id: int):
 @dp.message(Command("покинуть"))
 async def leave_planet_command(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     await leave_planet(chat_id)
 
@@ -458,7 +599,7 @@ async def repair(chat_id: int):
             break
         all_ships[chat_id]["resources"] -= 25
         all_ships[chat_id]["ship_health"] += random.randint(5, 10)
-        all_ships[chat_id]["crew_oxygen"] += random.randint(2, 5)
+        all_ships[chat_id]["oxygen"] += random.randint(2, 5)
         all_ships[chat_id]["crew_health"] += random.randint(2, 5)
         await bot.send_message(chat_id, random.choice(REPAIR_EMOJI))
         await asyncio.sleep(1)
@@ -482,7 +623,7 @@ def is_ship_damaged(ship: dict) -> bool:
 @dp.message(Command("ремонт"))
 async def repair_ship(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     if all_ships[chat_id]['ship_health'] > 99 and not is_ship_damaged(all_ships[chat_id]):
         await message.answer("Ремонт не требуется.")
@@ -498,7 +639,7 @@ async def self_destruction_command(message: Message):
     if not is_chat_active(chat_id):
         await message.answer("Не получилось отправить команду самоуничтожение\nНет соединения. ⚠️")
         return
-    if message.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await message.answer("Только капитан может сделать это ⚠️")
         return
     await message.answer("ВЫ УВЕРЕНЫ В ТОМ, ЧТО ХОТИТЕ СДЕЛАТЬ ЭТО ?:",
@@ -508,13 +649,7 @@ async def self_destruction_command(message: Message):
 # Команда для создания предметов
 @dp.message(Command("создание", "крафт"))
 async def craft(message: Message):
-    chat_id = message.chat.id
-    if not is_chat_active(chat_id):
-        await message.answer("Не получилось отправить команду самоуничтожение\nНет соединения. ⚠️")
-        return
-    if not is_user_allowed(message.from_user.id, chat_id):
-        await message.answer(
-            "Только экипаж корабля может использовать эту команду. ⚠️")
+    if not await can_proceed(message):
         return
     await message.answer("Выберите предмет для создания 🛠",
                          reply_markup=get_craft_keyboard())
@@ -530,7 +665,7 @@ def random_bad_shot_text() -> str:
 @dp.message(Command("выстрел"))
 async def shot_command(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     if not all_ships[chat_id]['alien_attack']:
         await message.answer("⚠️ Нельзя стрелять, когда нет опасностей")
@@ -556,6 +691,7 @@ def get_random_chat_id(my_chat_id: int):
     r_chat_id = r_ship[0]
     if my_chat_id == r_chat_id:
         get_random_chat_id(my_chat_id)
+        return None
     else:
         return int(r_chat_id)
 
@@ -604,6 +740,10 @@ async def connect(chat_id: int, title, args):
             # Связываемся со случайным кораблем
             if all_ships[chat_id]['connected_chat'] == 'null':
                 random_chat_id = get_random_chat_id(chat_id)
+                if type(random_chat_id) == NoneType:
+                    print("Не удалось подключиться, пробую ещё раз")
+                    await connect(chat_id, title, args)
+                    return
                 await connection(random_chat_id, chat_id, title, args)
 
             else:
@@ -632,6 +772,12 @@ async def connect(chat_id: int, title, args):
                 if connected_chat_id == chat_id:
                     all_ships[chat_id]['blocked'] = False
                     await bot.send_message(connected_chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
+                    return
+                if is_chat_banned(connected_chat_id):
+                    all_ships[chat_id]['connected_chat'] = 'null'
+                    all_ships[chat_id]['blocked'] = False
+                    await bot.send_message(chat_id,
+                                           f"Не удалось соединиться с кораблём. Выбранный корабль был заблокирован.")
                     return
                 if not is_chat_active(connected_chat_id):
                     all_ships[chat_id]['connected_chat'] = 'null'
@@ -662,7 +808,7 @@ async def connect(chat_id: int, title, args):
 @dp.message(Command("связь", "с"))
 async def connect_to_other_ship(message: Message, command: CommandObject):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     await connect(chat_id, message.chat.title, command.args)
 
@@ -670,7 +816,7 @@ async def connect_to_other_ship(message: Message, command: CommandObject):
 @dp.message(Command("!связь", "!с"))
 async def disconnect_from_other_ship(message: Message):
     chat_id = message.chat.id
-    if not can_proceed(message):
+    if not await can_proceed(message):
         return
     if all_ships[chat_id]['connected_chat'] != 'null':
         connected_chat_id = int(all_ships[chat_id]['connected_chat'])
@@ -819,7 +965,7 @@ async def fire_func(chat_id: int):
         if random.random() > 0.25:
             all_ships[chat_id]["crew_health"] -= random.randint(2, 5)
         if random.random() > 0.25:
-            all_ships[chat_id]["crew_oxygen"] -= random.randint(2, 5)
+            all_ships[chat_id]["oxygen"] -= random.randint(2, 5)
 
         await destroy_engine(chat_id, 0.05)
         await destroy_fuel_tank(chat_id, 0.05)
@@ -873,7 +1019,7 @@ async def delete_message(chat_id: int, message_id: int):
 async def self_destruction_callback(callback: CallbackQuery):
     print("Обработка самоуничтожения")
     chat_id = callback.message.chat.id
-    if callback.from_user.id != list(all_ships[chat_id]['crew'])[0]:
+    if callback.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await callback.answer("Только капитан может сделать это ⚠️")
         return
     if not is_chat_active(chat_id):
@@ -951,7 +1097,7 @@ def check_data(state: dict, chat_id: int):
     state["ship_fuel"] = clamp(state["ship_fuel"], 0, 100)
     state["ship_health"] = clamp(state["ship_health"], 0, 100)
     state["crew_health"] = clamp(state["crew_health"], 0, 100)
-    state["crew_oxygen"] = clamp(state["crew_oxygen"], 0, 100)
+    state["oxygen"] = clamp(state["oxygen"], 0, 100)
     state["extinguishers"] = clamp(state["extinguishers"], 0, 256)
     state["bullets"] = clamp(state["bullets"], 0, 128)
     all_ships[chat_id] = state
@@ -960,7 +1106,7 @@ def check_data(state: dict, chat_id: int):
 # Функция для сохранения данных
 def check_and_save_data(state: dict, chat_id: int):
     check_data(state, chat_id)
-    helpers.chat_utils.save_chat_state(chat_id, state)
+    chat_utils.save_chat_state(chat_id, state)
 
 
 # Изменение планет и сброс расстояния каждые 60 секунд
@@ -1096,13 +1242,13 @@ async def game_loop(chat_id: int):
                 await bot.send_message(chat_id, "⚠️ Корпус разрушен, утечка воздуха. Требуется ремонт.")
                 warned_of_air_leak = True
 
-            all_ships[chat_id]["crew_oxygen"] -= random.randint(1, 10)
+            all_ships[chat_id]["oxygen"] -= random.randint(1, 10)
         else:
             if warned_of_air_leak:
                 warned_of_air_leak = False
 
         # уменьшаем здоровье если нет воздуха
-        if all_ships[chat_id]["crew_oxygen"] < 1:
+        if all_ships[chat_id]["oxygen"] < 1:
             if not warned_of_empty_air:
                 await bot.send_message(chat_id, "⚠️ Закончился воздух. Требуется ремонт.")
                 warned_of_empty_air = True
@@ -1134,8 +1280,70 @@ async def admin_handler(event: ChatMemberUpdated):
 @dp.my_chat_member(ChatMemberUpdatedFilter(member_status_changed=IS_MEMBER >> IS_NOT_MEMBER))
 async def not_member_handler(event: ChatMemberUpdated):
     chat_id = event.chat.id
-    print(f"Бота удалили из чата {event.chat.id}, завершаем игру.")
+    print(f"Бота удалили из чата {event.chat.id}, по возможности завершаем игру.")
     stop_game(chat_id)
+
+
+def is_it_admin(user_id: int) -> bool:
+    return user_id in ADMINS
+
+
+# Команда администратора. Блокирует чат
+@dp.message(Command("adm:заблокировать"))
+async def adm_block(message: Message, command: CommandObject):
+    if not is_it_admin(message.from_user.id):
+        return
+    if type(command.args) == NoneType:
+        await message.answer("Вы не указали ID.")
+        return
+    try:
+        chat = int(command.args)
+        BLOCKED_CHATS.append(chat)
+        CONFIG['blacklist'] = BLOCKED_CHATS
+        stop_game(chat)
+        save_config(CONFIG)
+        await message.answer(f"Чат {chat} заблокирован ✅")
+    except ValueError as e:
+        print(f"Не удалось заблокировать чат: {e} ")
+        await message.answer(f"Не получилось заблокировать чат 🚫\n{e}")
+
+
+# Команда администратора. Разблокирует чат
+@dp.message(Command("adm:разблокировать"))
+async def adm_unlock(message: Message, command: CommandObject):
+    if not is_it_admin(message.from_user.id):
+        return
+    if type(command.args) == NoneType:
+        await message.answer("Вы не указали ID.")
+        return
+    try:
+        chat = int(command.args)
+        BLOCKED_CHATS.remove(chat)
+        CONFIG['blacklist'] = BLOCKED_CHATS
+        save_config(CONFIG)
+        await message.answer(f"Чат {chat} разблокирован ✅")
+    except ValueError as e:
+        print(f"Не удалось разблокировать чат: {e} ")
+        await message.answer(f"Не получилось разблокировать чат 🚫\n{e}")
+
+
+# Команда администратора. Останавливает игру в чате
+@dp.message(Command("adm:стоп"))
+async def adm_stop(message: Message, command: CommandObject):
+    if not is_it_admin(message.from_user.id):
+        return
+    if type(command.args) == NoneType:
+        await message.answer("Вы не указали ID.")
+        return
+    try:
+        chat = int(command.args)
+        if is_chat_active(chat):
+            stop_game(chat)
+            await message.answer(f"Игра в чате {chat} остановлена ✅")
+        else:
+            await message.answer(f"Не получилось остановить игру в чате {chat} 🚫\nПроверьте ID.")
+    except ValueError as e:
+        await message.answer(f"Не получилось остановить игру в чате. 🚫\n{e}")
 
 
 # Функция, которая вызывается при запуске бота
@@ -1146,6 +1354,8 @@ async def init():
         await dp.start_polling(bot)
     except CancelledError:
         print("Остановка.")
+    except TelegramNetworkError as e:
+        print(f"Возникли некоторые проблемы. Проверьте подключение к интернету. Это всё, что нам известно: \n{e}")
 
 
 # Запуск бота
