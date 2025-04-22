@@ -72,6 +72,14 @@ def get_crew_health(chat_id: int, user_id: int) -> int:
     return -1
 
 
+# Здоровье одного конкретного человека
+def get_crew_role(chat_id: int, user_id: int) -> int:
+    for i in all_ships[chat_id]['crew']:
+        if int(i['user_id']) == user_id:
+            return int(i['user_id'])
+    return -1
+
+
 # Уменьшаем урон у всех на случайное количество в пределах min_value - max_value
 def damage_all_crew(chat_id: int, min_value: int, max_value: int):
     for i in all_ships[chat_id]['crew']:
@@ -401,7 +409,7 @@ async def pause_game(message: Message):
     if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
         await message.answer("Только капитан может остановить игру.")
         return
-    chat_utils.save_chat_state(chat_id, all_ships[chat_id])
+    check_and_save_data(all_ships[chat_id], chat_id)
     remove_chat_from_all_ships(chat_id)
     await message.answer(
         "Игра остановлена! ✅\nℹ️ Продолжить игру можно командой /играть (загрузится последнее сохранение)")
@@ -1296,20 +1304,22 @@ async def game_loop_events(chat_id: int):
                 await bot.send_message(chat_id, f"Мы нашли полезные ресурсы!\nПолучено {value} ресурсов")
             if random.random() < 0.05:
                 # Аномалия на планете
-                value = random.randint(1, 3)
-                all_ships[chat_id]["ship_health"] -= value
-                await bot.send_message(chat_id,
-                                       f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
-                await destroy_engine(chat_id, 0.2)
+                if not int(all_ships[chat_id]["ship_health"]) == 0:
+                    value = random.randint(1, 3)
+                    all_ships[chat_id]["ship_health"] = clamp(all_ships[chat_id]["ship_health"] - value, 0, 100)
+                    await bot.send_message(chat_id,
+                                           f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
+                    await destroy_engine(chat_id, 0.2)
         else:
             # события в космосе
             if random.random() < 0.02:
                 # Космический мусор
-                value = random.randint(1, 5)
-                all_ships[chat_id]["ship_health"] -= value
-                await bot.send_message(chat_id,
-                                       f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
-                await destroy_engine(chat_id, 0.2)
+                if not int(all_ships[chat_id]["ship_health"]) == 0:
+                    value = random.randint(1, 3)
+                    all_ships[chat_id]["ship_health"] -= value
+                    await bot.send_message(chat_id,
+                                           f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
+                    await destroy_engine(chat_id, 0.2)
             if random.random() < 0.02:
                 # Космическая аномалия
                 all_ships[chat_id]["distance"] = 0
@@ -1318,9 +1328,10 @@ async def game_loop_events(chat_id: int):
         # Здесь могут быть универсальные события
         if random.random() < 0.01 and not all_ships[chat_id]["alien_attack"]:
             # Атака пришельцев
-            await alien_attack(chat_id)
+            if not int(all_ships[chat_id]["ship_health"]) == 0:
+                await alien_attack(chat_id)
 
-        if random.random() < 0.008 and not all_ships[chat_id]["fire"]:
+        if random.random() < 0.01 and not all_ships[chat_id]["fire"]:
             # пожар
             all_ships[chat_id]["fire"] = True
             await fire_func(chat_id)
