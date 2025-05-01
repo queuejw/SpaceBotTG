@@ -50,7 +50,6 @@ if TOKEN == "":
     exit(1)
 
 PLANETS = chat_utils.get_planets()
-REPAIR_EMOJI = ["🔨", "⚒️", "🛠", "⛏️", "🪚", "⚙️", "🔧", "🪛"]
 
 dp = Dispatcher()
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
@@ -72,7 +71,7 @@ def get_crew_health(chat_id: int, user_id: int) -> int:
     return -1
 
 
-# Здоровье одного конкретного человека
+# Получить роль одного конкретного человека
 def get_crew_role(chat_id: int, user_id: int) -> int:
     for i in all_ships[chat_id]['crew']:
         if int(i['user_id']) == user_id:
@@ -93,28 +92,61 @@ def damage_crew(chat_id: int, user_id: int, value: int):
             i['user_health'] = clamp(i['user_health'] - value, 0, 100)
 
 
+def get_random_crew(data: list, captain: dict) -> dict:
+    user: dict = random.choice(data)
+    if user == captain:
+        # Совпадение, пробуем ещё раз
+        return get_random_crew(data, captain)
+    return user
+
+
 # Проверяем здоровье у всех участников. Если на нуле - удаляем. Если погибает капитан, передаем роль случайному участнику
 async def check_all_crew(chat_id: int):
     index = 0
-    for i in all_ships[chat_id]['crew']:
+    print("проверка игроков")
+    print(all_ships[chat_id]['crew'])
+    data: list = all_ships[chat_id]['crew']
+    for i in data:
+        print(i)
         if i['user_health'] < 1:
             if i['user_role'] == 1:
                 print("Передаем роль капитана случайному участнику")
-                all_ships[chat_id]['crew'][0] = random.choice(all_ships[chat_id]['crew'])
-                all_ships[chat_id]['crew'][0]['user_role'] = 1
-                all_ships[chat_id]['crew'].pop(index)
-                await bot.send_message(chat_id,
-                                       f"Капитан {i['user_name']} погиб! Встречайте нового капитана: {all_ships[chat_id]['crew'][0]['user_name']} 👑")
+                if len(data) > 1:
+                    data.remove(i)
+                    random_crew = get_random_crew(data, i)
+                    print(f"выбран для передачи прав игрок {random_crew}")
+                    if random_crew['user_role'] == 1:
+                        print("выбранный игрок уже капитан.")
+
+                    data[0] = random_crew
+                    data[0]['user_role'] = 1
+
+                    await bot.send_message(chat_id,
+                                           f"Капитан {i['user_name']} погиб! 😵\nВстречайте нового капитана: {data[0]['user_name']} 👑")
+                else:
+                    print("недостаточно участников, чтобы передать роль")
+                    data.remove(i)
+                    await bot.send_message(chat_id,
+                                           f"Капитан {i['user_name']} погиб! 😵")
+                print("получилась такая каша")
+                print(data)
             else:
                 print("Какой-то игрок погиб")
-                all_ships[chat_id]['crew'].remove(i)
-                await bot.send_message(chat_id, f"{get_crew_role_by_num(int(i['user_role']))} {i['user_name']} погиб 😵")
+                if len(data) > 1:
+                    print(i)
+                    data.remove(i)
+                    await bot.send_message(chat_id,
+                                           f"{get_crew_role_by_num(int(i['user_role']))} {i['user_name']} погиб 😵")
+                else:
+                    print("недостаточно участников. невозможно удалить участника")
         index += 1
+    all_ships[chat_id]['crew'] = data
+    print("конец проверки")
 
 
 # Если общее здоровье на нуле, то вернет False
 def is_crew_alive(chat_id: int) -> bool:
-    return get_total_crew_health(chat_id) != 0
+    return get_total_crew_health(chat_id) > 1
 
 
 # Вернет True, если корабль чата есть в словаре.
@@ -218,6 +250,7 @@ def create_new_ship(message: Message):
     # Во избежание проблем сбрасываем пришельцев и пожары
     loaded_state['fire'] = False
     loaded_state['alien_attack'] = False
+    loaded_state['blocked'] = False
     all_ships[chat_id] = loaded_state
     chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
@@ -659,7 +692,6 @@ async def repair(chat_id: int):
         all_ships[chat_id]["resources"] -= 25
         all_ships[chat_id]["ship_health"] += random.randint(5, 10)
         all_ships[chat_id]["oxygen"] += random.randint(2, 5)
-        await bot.send_message(chat_id, random.choice(REPAIR_EMOJI))
         await asyncio.sleep(1)
     # Отменяем блокировку действий
     all_ships[chat_id]["blocked"] = False
@@ -784,14 +816,15 @@ async def shot_command(message: Message, command: CommandObject):
     all_ships[chat_id]['cannon_overheated'] = True
     if command.args == "корабль" or command.args == "Корабль":
         # Симуляция выстрела в корабль
+        if all_ships[chat_id]['connected_chat'] == 'null':
+            await message.answer("⚠️ Не получилось выстрелить.\nУстановите связь, используя команду /связь")
+            return
         value = 0.7 if not all_ships[chat_id]['cannon_damaged'] else 0.9
+
+        all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
         if random.random() < value:
             await message.answer(f"{random_bad_shot_text()} ⚠️")
         else:
-            if all_ships[chat_id]['connected_chat'] == 'null':
-                await message.answer("⚠️ Не получилось выстрелить.\nУстановите связь, используя команду /связь")
-                return
-
             await shot(chat_id, message.chat, int(all_ships[chat_id]['connected_chat']))
     else:
         if not all_ships[chat_id]['alien_attack']:
@@ -799,6 +832,8 @@ async def shot_command(message: Message, command: CommandObject):
             return
         # Симуляция выстрела в пришельцев
         value = 0.5 if not all_ships[chat_id]['cannon_damaged'] else 0.75
+
+        all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
         if random.random() < value:
             await message.answer(f"{random_bad_shot_text()} ⚠️")
         else:
@@ -1194,7 +1229,6 @@ async def craft_callback(callback: CallbackQuery):
         all_ships[chat_id]['extinguishers'] += 1
         await bot.answer_callback_query(callback.id, text="Создан огнетушитель")
         await bot.send_message(chat_id, "Создан огнетушитель ✅\n+ 1 огнетушитель")
-        await delete_message(callback.message.chat.id, callback.message.message_id)
 
     elif callback.data == "craft_bullet":
         if int(all_ships[chat_id]['resources']) < 50:
@@ -1204,7 +1238,6 @@ async def craft_callback(callback: CallbackQuery):
         all_ships[chat_id]['bullets'] += 1
         await bot.answer_callback_query(callback.id, text="Создан снаряд")
         await bot.send_message(chat_id, "Создан снаряд ✅\n+ 1 снаряд")
-        await delete_message(callback.message.chat.id, callback.message.message_id)
 
     elif callback.data == "craft_fuel":
         if int(all_ships[chat_id]['resources']) < 75:
@@ -1218,7 +1251,6 @@ async def craft_callback(callback: CallbackQuery):
         check_data(all_ships[chat_id], chat_id)
         await bot.answer_callback_query(callback.id, text="Создано топливо.")
         await bot.send_message(chat_id, "Создано топливо ✅\n+ 10% топлива")
-        await delete_message(callback.message.chat.id, callback.message.message_id)
 
     await callback.answer()
 
@@ -1337,8 +1369,7 @@ async def game_loop_events(chat_id: int):
             await fire_func(chat_id)
 
         # Убираем перегрев орудия
-        if all_ships[chat_id]['cannon_overheated']:
-            all_ships[chat_id]['cannon_overheated'] = False
+        all_ships[chat_id]['cannon_overheated'] = False
 
         await asyncio.sleep(30)
 
