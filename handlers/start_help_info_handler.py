@@ -2,7 +2,8 @@ from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, FSInputFile
 
-from helpers.utils import github_link
+from bot.bot_data import send_message
+from bot.shared import github_link
 
 router = Router()
 
@@ -45,4 +46,4 @@ async def commands(message: Message):
         "\n"
         "Путешествуйте по планетам, чтобы собирать ресурсы. С помощью ресурсов вы сможете ремонтировать корабль, создавать предметы и выполнять многие действия.\nИщите новых друзей из других чатов, используя команду /связь"
     )
-    await message.answer(text)
+    await send_message(message.chat.id, text)

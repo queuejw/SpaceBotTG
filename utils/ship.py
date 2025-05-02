@@ -14,7 +14,7 @@ def get_default_ship() -> dict:
         'engine_damaged': False,  # Поврежден ли двигатель?
         'fuel_tank_damaged': False,  # Поврежден ли топливный бак?
         'cannon_damaged': False,  # Повреждено ли орудие?
-        'cannon_overheated': False, # Перегрето ли орудие?
+        'cannon_overheated': False,  # Перегрето ли орудие?
         'planet_name': "Земля",  # Название текущей планеты
         'next_planet_name': "Луна",  # Название следующей планеты
         'previous_planet_name': "Земля",  # Название предыдущей планеты

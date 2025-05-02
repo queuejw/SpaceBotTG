@@ -1,7 +1,7 @@
 import json
 import os
 
-from helpers.ship import get_default_ship
+from utils.ship import get_default_ship
 
 # Директория для хранения кораблей
 DATA_DIR = "ships"
