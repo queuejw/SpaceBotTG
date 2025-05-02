@@ -4,11 +4,12 @@ import random
 from types import NoneType
 
 from bot.bot_data import bot
+from bot.check_crew import check_all_crew
 from bot.config import PLANETS
 from bot.game_functions import fire_func, destroy_engine, destroy_fuel_tank, destroy_cannon, stop_game
 from bot.messages import send_message
 from bot.save_game import check_and_save_data, check_data
-from bot.shared import is_chat_active, all_ships, damage_all_crew, check_all_crew, is_crew_alive
+from bot.shared import is_chat_active, all_ships, damage_all_crew, is_crew_alive
 from utils.util import clamp
 
 

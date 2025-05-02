@@ -4,7 +4,6 @@ import random
 from aiogram.types import Message
 
 from bot.config import BLOCKED_CHATS
-from bot.messages import send_message
 from utils.util import clamp
 
 github_link = "https://github.com/queuejw/SpaceBotTG"
@@ -60,14 +59,6 @@ def damage_crew(chat_id: int, user_id: int, value: int):
             i['user_health'] = clamp(i['user_health'] - value, 0, 100)
 
 
-def get_random_crew(data: list, captain: dict) -> dict:
-    user: dict = random.choice(data)
-    if user == captain:
-        # Совпадение, пробуем ещё раз
-        return get_random_crew(data, captain)
-    return user
-
-
 #  Вернет True, если id пользователя есть в списке
 def exist_user_by_id(chat_id: int, user_id: int) -> bool:
     for i in all_ships[chat_id]['crew']:
@@ -115,50 +106,6 @@ async def can_proceed(message: Message) -> bool:
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return False
     return True
-
-
-# Проверяем здоровье у всех участников. Если на нуле - удаляем. Если погибает капитан, передаем роль случайному участнику
-async def check_all_crew(chat_id: int):
-    index = 0
-    print("проверка игроков")
-    print(all_ships[chat_id]['crew'])
-    data: list = all_ships[chat_id]['crew']
-    for i in data:
-        print(i)
-        if i['user_health'] < 1:
-            if i['user_role'] == 1:
-                print("Передаем роль капитана случайному участнику")
-                if len(data) > 1:
-                    data.remove(i)
-                    random_crew = get_random_crew(data, i)
-                    print(f"выбран для передачи прав игрок {random_crew}")
-                    if random_crew['user_role'] == 1:
-                        print("выбранный игрок уже капитан.")
-
-                    data[0] = random_crew
-                    data[0]['user_role'] = 1
-
-                    await send_message(chat_id,
-                                       f"Капитан {i['user_name']} погиб! 😵\nВстречайте нового капитана: {data[0]['user_name']} 👑")
-                else:
-                    print("недостаточно участников, чтобы передать роль")
-                    data.remove(i)
-                    await send_message(chat_id,
-                                       f"Капитан {i['user_name']} погиб! 😵")
-                print("получилась такая каша")
-                print(data)
-            else:
-                print("Какой-то игрок погиб")
-                if len(data) > 1:
-                    print(i)
-                    data.remove(i)
-                    await send_message(chat_id,
-                                       f"{get_crew_role_by_num(int(i['user_role']))} {i['user_name']} погиб 😵")
-                else:
-                    print("недостаточно участников. невозможно удалить участника")
-        index += 1
-    all_ships[chat_id]['crew'] = data
-    print("конец проверки")
 
 
 # Если общее здоровье на нуле, то вернет False

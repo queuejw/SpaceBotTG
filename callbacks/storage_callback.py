@@ -23,16 +23,18 @@ async def update_storage_text(callback: CallbackQuery):
     new_text = get_storage_text(chat_id)
     if callback.message.text != new_text:
         try:
-            await callback.answer()
             await bot.edit_message_text(chat_id=chat_id,
                                         message_id=callback.message.message_id,
                                         text=new_text,
                                         reply_markup=get_storage_inline_keyboard())
             print(f"Текст склада в чате {chat_id} успешно обновлен")
+            await callback.answer("Обновлено")
         except TelegramBadRequest:
             print("Ошибка при изменении сообщения склада: TelegramBadRequest")
+            await callback.answer("Ошибка")
         except TelegramRetryAfter:
             print("Ошибка при изменении сообщения склада: TelegramRetryAfter")
+            await callback.answer("Ошибка")
     else:
         print(f"Текст склада в чате {chat_id} совпадает с прошлым")
         await callback.answer("Уже обновлено.")

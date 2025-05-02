@@ -8,8 +8,8 @@ import os
 def get_default_config() -> dict:
     return {
         "token": "",
-        "blacklist": "[]",
-        "administrators": "[]",
+        "blacklist": [],
+        "administrators": [],
         "config_version": 0
     }
 

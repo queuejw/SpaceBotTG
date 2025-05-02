@@ -17,12 +17,14 @@ def add_user_to_white_list(user_id: int, chat_id: int, user_name: str, user_role
         # Возвращаем False, если капитан пытается добавить самого себя
         if user_id == all_ships[chat_id]['crew'][0]['user_id']:
             return False
-    captain = get_default_crew()
-    captain["user_name"] = user_name
-    captain["user_role"] = user_role
-    captain["user_id"] = user_id
-    all_ships[chat_id]['crew'].append(captain)
-    return True
+    if not exist_user_by_id(chat_id, user_id):
+        user = get_default_crew()
+        user["user_name"] = user_name
+        user["user_role"] = user_role
+        user["user_id"] = user_id
+        all_ships[chat_id]['crew'].append(user)
+        return True
+    return False
 
 
 # Функция, которая позволяет удалить пользователя из списка разрешенных пользователей

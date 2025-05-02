@@ -27,7 +27,6 @@ async def fire_func(chat_id: int):
                 await send_message(c_chat_id,
                                    f"Корабль {all_ships[chat_id]['ship_name']} горит!")
 
-    await send_message(chat_id, "🔥")
     while True:
         if not is_chat_active(chat_id):
             break
@@ -44,7 +43,7 @@ async def fire_func(chat_id: int):
         if random.random() > 0.25:
             all_ships[chat_id]["ship_health"] -= random.randint(5, 10)
         if random.random() > 0.25:
-            damage_all_crew(chat_id, 2, 5)
+            damage_all_crew(chat_id, 1, 5)
         if random.random() > 0.25:
             all_ships[chat_id]["oxygen"] -= random.randint(2, 5)
 
