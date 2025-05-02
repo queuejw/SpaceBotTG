@@ -5,8 +5,8 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from bot import chat_utils
-from bot.bot_data import send_message
 from bot.game import game_loop, game_loop_events, game_loop_planet_change
+from bot.messages import send_message
 from bot.shared import all_ships, is_chat_banned, is_chat_active
 from utils.crew import get_default_crew
 

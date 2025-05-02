@@ -1,16 +1,18 @@
-# Изменение планет и сброс расстояния каждые 60 секунд
+# Код игры, который выполняется всё время, пока активна игра или действует какое-то событие
 import asyncio
 import random
 from types import NoneType
 
-from bot.bot_data import send_message, bot
+from bot.bot_data import bot
 from bot.config import PLANETS
 from bot.game_functions import fire_func, destroy_engine, destroy_fuel_tank, destroy_cannon, stop_game
+from bot.messages import send_message
 from bot.save_game import check_and_save_data, check_data
 from bot.shared import is_chat_active, all_ships, damage_all_crew, check_all_crew, is_crew_alive
 from utils.util import clamp
 
 
+# Изменение планет и сброс расстояния каждые 60 секунд
 async def game_loop_planet_change(chat_id: int):
     while is_chat_active(chat_id):
         if not all_ships[chat_id]['on_planet']:

@@ -5,7 +5,7 @@ from aiogram import Router
 from aiogram.filters import Command
 from aiogram.types import Message
 
-from bot.bot_data import send_message
+from bot.messages import send_message
 from bot.save_game import check_data
 from bot.shared import all_ships, can_proceed
 

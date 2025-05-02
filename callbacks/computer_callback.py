@@ -1,4 +1,4 @@
-# Функция для получения текста сообщения компьютера
+# Текст компьютера
 from aiogram import Router, F
 from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.types import CallbackQuery
@@ -11,12 +11,13 @@ from utils.keyboards import get_computer_inline_keyboard
 router = Router()
 
 
+# Обновление текста сообщения компьютера
 @router.callback_query(F.data == "update_computer_text")
 async def update_computer_text(callback: CallbackQuery):
     print("Обновляем текст компьютера")
     chat_id = callback.message.chat.id
     if not is_chat_active(chat_id):
-        await callback.answer()
+        await callback.answer("Игра не активна")
         return
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")

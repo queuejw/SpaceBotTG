@@ -1,10 +1,10 @@
-# Костыль для перепроверки данных
-
+# Сохранение игры
 from bot import chat_utils
 from bot.shared import all_ships
 from utils.util import clamp
 
 
+# Костыль для перепроверки данных
 def check_data(state: dict, chat_id: int):
     state["ship_fuel"] = clamp(state["ship_fuel"], 0, 100)
     state["ship_health"] = clamp(state["ship_health"], 0, 100)

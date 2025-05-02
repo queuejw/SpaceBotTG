@@ -1,7 +1,6 @@
 from aiogram import Dispatcher, Bot
 from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
-from aiogram.exceptions import TelegramRetryAfter
 
 import bot.config as config
 
@@ -15,10 +14,3 @@ if config.TOKEN == "":
 
 dp = Dispatcher()
 bot = Bot(token=config.TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-
-
-async def send_message(chat_id: int, message: str):
-    try:
-        await bot.send_message(chat_id, message)
-    except TelegramRetryAfter as e:
-        print(f"Сервера Telegram сгорели, не удалось отправить сообщение. Это всё, что нам известно: {e}")

@@ -7,7 +7,8 @@ from aiogram.exceptions import TelegramRetryAfter
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
-from bot.bot_data import send_message, bot
+from bot.bot_data import bot
+from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned
 
 router = Router()

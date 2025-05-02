@@ -4,6 +4,7 @@ from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
 from bot.bot_data import bot
+from bot.messages import send_message
 from bot.shared import is_chat_active, all_ships, exist_user_by_id
 from utils.crew import get_default_crew
 
@@ -41,52 +42,52 @@ def del_user_from_white_list(user_id: int, chat_id: int) -> bool:
 async def add_user(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer(
-            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
+        await send_message(chat_id,
+                           "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     # Только капитан может сделать это
     if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
-        await message.answer("Только капитан может добавить участников на борт ⚠️")
+        await send_message(chat_id, "Только капитан может добавить участников на борт ⚠️")
         return
     # Если аргументов нет, то мы не можем добавить участников
     if command.args is None:
-        await message.answer("Не получилось отправить команду\nВы не указали ID участника⚠️")
+        await send_message(chat_id, "Не получилось отправить команду\nВы не указали ID участника⚠️")
         return
     try:
         user = await bot.get_chat_member(chat_id, int(command.args))
         if add_user_to_white_list(int(command.args), chat_id, user.user.first_name, 0):
-            await message.answer(f"Успешно! {user.user.first_name} теперь член экипажа корабля. ✅")
+            await send_message(chat_id, f"Успешно! {user.user.first_name} теперь член экипажа корабля. ✅")
         else:
-            await message.answer("Не получилось добавить нового игрока ⚠️")
+            await send_message(chat_id, "Не получилось добавить нового игрока ⚠️")
     except ValueError:
-        await message.answer("Не получилось добавить нового игрока ⚠️")
+        await send_message(chat_id, "Не получилось добавить нового игрока ⚠️")
     except TelegramBadRequest:
-        await message.answer("Компьютер не нашёл этого участника ⚠️")
+        await send_message(chat_id, "Компьютер не нашёл этого участника ⚠️")
 
 
 @router.message(Command("удалить"))
 async def del_user(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not is_chat_active(chat_id):
-        await message.answer(
-            "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
+        await send_message(chat_id,
+                           "Не удалось получить информацию о корабле:\nНет соединения. ⚠️\nПопробуйте ввести команду /играть")
         return
     # Только капитан может сделать это
     if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
-        await message.answer("Только капитан может удалить участников ⚠️")
+        await send_message(chat_id, "Только капитан может удалить участников ⚠️")
         return
     # Если аргументов нет, то мы не можем удалить участников
     if command.args is None:
-        await message.answer("Не получилось отправить команду\nВы не указали ID участника ⚠️")
+        await send_message(chat_id, "Не получилось отправить команду\nВы не указали ID участника ⚠️")
         return
     if exist_user_by_id(chat_id, int(command.args)):
         try:
             if del_user_from_white_list(int(command.args), chat_id):
-                await message.answer("Успешно! Член экипажа выброшен в открытый космос. ✅")
+                await send_message(chat_id, "Успешно! Член экипажа выброшен в открытый космос. ✅")
             else:
-                await message.answer("Капитан не может удалить самого себя ⚠️")
+                await send_message(chat_id, "Капитан не может удалить самого себя ⚠️")
         except ValueError:
-            await message.answer("Не удалось удалить члена экипажа ⚠️")
+            await send_message(chat_id, "Не удалось удалить члена экипажа ⚠️")
 
     else:
-        await message.answer("Не удалось удалить члена экипажа ⚠️\nПерепроверьте ID")
+        await send_message(chat_id, "Не удалось удалить члена экипажа ⚠️\nПерепроверьте ID")

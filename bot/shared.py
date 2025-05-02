@@ -1,11 +1,10 @@
 # ссылка на наш GitHUb
 import random
 
-from aiogram.exceptions import TelegramBadRequest
 from aiogram.types import Message
 
-from bot.bot_data import send_message, bot
 from bot.config import BLOCKED_CHATS
+from bot.messages import send_message
 from utils.util import clamp
 
 github_link = "https://github.com/queuejw/SpaceBotTG"
@@ -116,13 +115,6 @@ async def can_proceed(message: Message) -> bool:
         await message.answer("Подождите, пока не будет выполнена другая задача. ⚠️")
         return False
     return True
-
-
-async def delete_message(chat_id: int, message_id: int):
-    try:
-        await bot.delete_message(chat_id, message_id)
-    except TelegramBadRequest as e:
-        print(f"Не получилось удалить сообщение. Это всё, что нам известно: {e}")
 
 
 # Проверяем здоровье у всех участников. Если на нуле - удаляем. Если погибает капитан, передаем роль случайному участнику

@@ -2,6 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
+from bot.messages import send_message
 from bot.shared import get_crew_text, exist_user_by_name, can_proceed, exist_user_by_id
 from bot.text import get_specific_crew_text, get_computer_text, get_storage_text
 from utils.keyboards import get_computer_inline_keyboard, get_storage_inline_keyboard
@@ -39,7 +40,7 @@ async def crew(message: Message, command: CommandObject):
     # Если ник не был указан, то отправляем список участников
     if command.args is None:
         text = get_crew_text(chat_id)
-        await message.answer(text)
+        await send_message(chat_id, text)
     else:
         # Проверяем, что данный пользователь существует и отправляем сообщение
         value: bool
@@ -51,9 +52,9 @@ async def crew(message: Message, command: CommandObject):
         text = get_specific_crew_text(chat_id, command.args) if not is_it_int(command.args) else get_specific_crew_text(
             chat_id, int(command.args))
         if value:
-            await message.answer(text)
+            await send_message(chat_id, text)
         else:
-            await message.answer(text + "Возможно, вы ошиблись с вводом имени или id члена экипажа.")
+            await send_message(chat_id, text + "Возможно, вы ошиблись с вводом имени или id члена экипажа.")
 
 
 # Выводит информацию об игроке, который ввел эту команду
@@ -63,4 +64,4 @@ async def about_me(message: Message):
     if not await can_proceed(message):
         return
     text = get_specific_crew_text(chat_id, message.from_user.id)
-    await message.answer(text)
+    await send_message(chat_id, text)

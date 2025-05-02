@@ -2,7 +2,7 @@ from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import Message, FSInputFile
 
-from bot.bot_data import send_message
+from bot.messages import send_message
 from bot.shared import github_link
 
 router = Router()

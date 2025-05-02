@@ -1,5 +1,5 @@
 from bot.bot_utils import load_config
-from bot.chat_utils import get_planets
+from utils.planets import get_planets
 
 CONFIG = load_config()
 

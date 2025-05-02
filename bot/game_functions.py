@@ -1,15 +1,18 @@
-# Механика пожаров
+# Все, что связано с игрой
+
 import asyncio
 import random
 from types import NoneType
 
 from bot import chat_utils
-from bot.bot_data import bot, send_message
+from bot.bot_data import bot
+from bot.messages import send_message
 from bot.save_game import check_data
 from bot.shared import all_ships, is_chat_active, damage_all_crew, remove_chat_from_all_ships
 from utils.keyboards import get_fire_inline_keyboard
 
 
+# Механика пожаров
 async def fire_func(chat_id: int):
     await bot.send_message(chat_id, "🔥Корабль горит!🔥", reply_markup=get_fire_inline_keyboard())
     if all_ships[chat_id]['connected_chat'] != 'null':

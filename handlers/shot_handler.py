@@ -5,8 +5,9 @@ from aiogram import Router
 from aiogram.filters import CommandObject, Command
 from aiogram.types import Chat, Message
 
-from bot.bot_data import send_message, bot
+from bot.bot_data import bot
 from bot.game_functions import destroy_cannon, destroy_engine, destroy_fuel_tank, fire_func
+from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned, damage_all_crew
 from utils.util import clamp
 

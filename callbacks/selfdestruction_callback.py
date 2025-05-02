@@ -1,15 +1,16 @@
+# Самоуничтожение
+
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from bot.bot_data import send_message
 from bot.game_functions import stop_game
-from bot.shared import all_ships, is_chat_active, delete_message
+from bot.messages import delete_message, send_message
+from bot.shared import all_ships, is_chat_active
 
 router = Router()
 
 
 async def self_destruction_func(chat_id):
-    await send_message(chat_id, "💥")
     text = (
         "💥💥💥💥💥\n"
         "Игра завершена! Корабль самоуничтожился."

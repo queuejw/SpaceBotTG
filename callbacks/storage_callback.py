@@ -15,7 +15,7 @@ async def update_storage_text(callback: CallbackQuery):
     print("Обновляем текст склада")
     chat_id = callback.message.chat.id
     if not is_chat_active(chat_id):
-        await callback.answer()
+        await callback.answer("Игра не активна")
         return
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")

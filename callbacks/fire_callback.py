@@ -1,16 +1,17 @@
-# Механика тушения пожаров
+# Тушение пожаров
 import asyncio
 import random
 
 from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
-from bot.bot_data import send_message
+from bot.messages import send_message
 from bot.shared import is_chat_active, all_ships, exist_user_by_id
 
 router = Router()
 
 
+# Механика тушения пожаров
 @router.callback_query(F.data == "fire_callback")
 async def fire_callback(callback: CallbackQuery):
     print("Обработка тушения пожара")

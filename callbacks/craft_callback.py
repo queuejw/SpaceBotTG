@@ -1,13 +1,15 @@
+# Создание предметов
 from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from bot.bot_data import send_message
+from bot.messages import delete_message, send_message
 from bot.save_game import check_data
-from bot.shared import is_chat_active, exist_user_by_id, delete_message, all_ships
+from bot.shared import is_chat_active, exist_user_by_id, all_ships
 
 router = Router()
 
 
+# Механика создания предметов
 @router.callback_query(F.data.startswith("craft_"))
 async def craft_callback(callback: CallbackQuery):
     print("Обработка создания предметов")

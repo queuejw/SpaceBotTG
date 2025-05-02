@@ -1,3 +1,5 @@
+# Здесь функции для сохранения
+
 import json
 import os
 
@@ -7,19 +9,6 @@ from utils.ship import get_default_ship
 DATA_DIR = "ships"
 # создать если нет
 os.makedirs(DATA_DIR, exist_ok=True)
-
-
-# Функция для получения списка планет
-def get_planets():
-    pl_file = "planets.txt"
-    if os.path.exists(pl_file):
-        with open(pl_file, 'r', encoding='utf-8') as file:
-            planets_from_file = [line.strip() for line in file.readlines()]
-            file.close()
-            return planets_from_file
-    # Если не получится, то останавливаем
-    print("Планеты не найдены. Остановка.")
-    exit(1)
 
 
 def get_chat_folder(chat_id: int) -> str:
