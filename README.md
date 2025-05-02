@@ -108,7 +108,7 @@ GitHub): https://github.com/queuejw/SpaceBotTG/issues
 # Как запустить бота самостоятельно
 
 Создайте бота в Telegram при помощи BotFather (@BotFather)
-Установите последнюю версию Python (Python 3.13.2 - https://www.python.org/downloads/release/python-3133/)
+Установите последнюю версию Python (Python 3.13.3 - https://www.python.org/downloads/release/python-3133/)
 Получите исходный код бота и установите зависимости из файла requirements.txt
 Запустите main.py для генерации конфига
 Вставьте в config.json токен (который получили в BotFather) своего бота (посмотрите файл config_example.json)
