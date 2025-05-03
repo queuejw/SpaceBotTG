@@ -7,25 +7,30 @@ from aiogram.types import Message
 
 from bot.messages import send_message
 from bot.save_game import check_data
-from bot.shared import all_ships, can_proceed
+from bot.shared import all_ships, can_proceed, get_user_by_id
 
 router = Router()
 
 
 # Ремонт корабля
-async def repair(chat_id: int):
+async def repair(chat_id: int, sec: int):
     # блокируем действия на время ремонта и обновляем данные
     all_ships[chat_id]["blocked"] = True
+    is_it_captain = sec > 7
     # уведомляем игроков
     await send_message(chat_id, "Ремонтируем корабль ...")
-    for _ in range(5):
+    for _ in range(sec):
         if (all_ships[chat_id]["resources"] - 25) < 1:
             break
         if all_ships[chat_id]["ship_health"] > 99:
             break
         all_ships[chat_id]["resources"] -= 25
-        all_ships[chat_id]["ship_health"] += random.randint(5, 10)
-        all_ships[chat_id]["oxygen"] += random.randint(2, 5)
+        if not is_it_captain:
+            all_ships[chat_id]["ship_health"] += random.randint(5, 10)
+            all_ships[chat_id]["oxygen"] += random.randint(2, 5)
+        else:
+            all_ships[chat_id]["ship_health"] += random.randint(2, 5)
+            all_ships[chat_id]["oxygen"] += random.randint(1, 3)
         await asyncio.sleep(1)
     # Отменяем блокировку действий
     all_ships[chat_id]["blocked"] = False
@@ -49,8 +54,12 @@ async def repair_ship(message: Message):
     chat_id = message.chat.id
     if not await can_proceed(message):
         return
+    role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
+    if role != 2 or role != 1:
+        await send_message(chat_id, "⚠️ Только инженер или капитан может ремонтировать корабль")
+        return
     if all_ships[chat_id]['ship_health'] > 99 and not is_ship_damaged(all_ships[chat_id]):
         await message.answer("Ремонт не требуется.")
         return
-
-    await repair(chat_id)
+    time = random.randint(5, 7) if role != 1 else random.randint(8, 15)
+    await repair(chat_id, time)

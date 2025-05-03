@@ -6,7 +6,7 @@ from aiogram import F, Router
 from aiogram.types import CallbackQuery
 
 from bot.messages import send_message
-from bot.shared import is_chat_active, all_ships, exist_user_by_id
+from bot.shared import is_chat_active, all_ships, exist_user_by_id, get_user_by_id
 
 router = Router()
 
@@ -22,6 +22,10 @@ async def fire_callback(callback: CallbackQuery):
         return
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")
+        return
+    role = int(get_user_by_id(chat_id, callback.from_user.id)['user_role'])
+    if role != 2 or role != 1:
+        await callback.answer("⚠️ Только инженер или капитан может тушить пожар")
         return
     if not all_ships[chat_id]["fire"]:
         print("Корабль не горит")

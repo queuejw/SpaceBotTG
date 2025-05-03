@@ -4,6 +4,7 @@ import random
 from aiogram.types import Message
 
 from bot.config import BLOCKED_CHATS
+from utils.roles import get_role_name_by_num
 from utils.util import clamp
 
 github_link = "https://github.com/queuejw/SpaceBotTG"
@@ -75,6 +76,22 @@ def exist_user_by_name(chat_id: int, user_name: str) -> bool:
     return False
 
 
+#  Вернет игрока, если id пользователя есть в списке
+def get_user_by_id(chat_id: int, user_id: int) -> dict:
+    for i in all_ships[chat_id]['crew']:
+        if i['user_id'] == user_id:
+            return i
+    return {}
+
+
+#  Вернет игрока, если имя пользователя есть в списке
+def get_user_by_name(chat_id: int, user_name: str) -> dict:
+    for i in all_ships[chat_id]['crew']:
+        if i['user_name'] == user_name:
+            return i
+    return {}
+
+
 # Вернет True, если выполнение действий в данных момент запрещено
 def is_actions_blocked(chat_id: int) -> bool:
     return all_ships[chat_id]['blocked']
@@ -112,22 +129,11 @@ async def can_proceed(message: Message) -> bool:
 def is_crew_alive(chat_id: int) -> bool:
     return get_total_crew_health(chat_id) > 1
 
-
-def get_crew_role_by_num(value: int) -> str:
-    match value:
-        case 1:
-            return "Капитан"
-        case 2:
-            return "не придумал"
-        case _:
-            return "Член экипажа"
-
-
 # Функция для получения текста сообщения экипажа
 def get_crew_text(chat_id) -> str:
     text = f"Экипаж корабля {all_ships[chat_id]['ship_name']}:\n\n"
     for i in all_ships[chat_id]['crew']:
-        text = text + f"👤 {i['user_name']} : {get_crew_role_by_num(i['user_role'])}\n"
+        text = text + f"👤 {i['user_name']} : {get_role_name_by_num(i['user_role'])}\n"
     return text
 
 
@@ -135,6 +141,6 @@ def get_crew_str(item: dict) -> str:
     return (
         f"👤 {item['user_name']}:\n"
         "=====\n"
-        f"⭐ Роль: {get_crew_role_by_num(item['user_role'])}\n"
+        f"⭐ Роль: {get_role_name_by_num(item['user_role'])}\n"
         f"❤️ Здоровье: {item['user_health']}%\n"
     )

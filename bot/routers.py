@@ -1,7 +1,7 @@
 from callbacks import computer_callback, fire_callback, storage_callback, selfdestruction_callback, craft_callback
 from handlers import play_handler, start_help_info_handler, chat_handler, adm_handler, whitelist_handler, id_handler, \
     rename_handler, connection_handler, fly_handler, craft_handler, pause_handler, selfdestruction_handler, \
-    computer_storage_crew_handler, shot_handler, repair_handler
+    computer_storage_crew_handler, shot_handler, repair_handler, role_handler
 
 router_list = [
     play_handler.router,
@@ -23,5 +23,6 @@ router_list = [
     selfdestruction_handler.router,
     computer_storage_crew_handler.router,
     shot_handler.router,
-    repair_handler.router
+    repair_handler.router,
+    role_handler.router
 ]

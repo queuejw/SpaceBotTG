@@ -3,7 +3,8 @@
 import random
 
 from bot.messages import send_message
-from bot.shared import all_ships, get_crew_role_by_num
+from bot.shared import all_ships
+from utils.roles import get_role_name_by_num
 
 
 # Получаем случайного игрока
@@ -39,4 +40,4 @@ async def check_all_crew(chat_id: int):
                 print("это был игрок, просто удаляем")
                 all_ships[chat_id]['crew'].remove(player)
                 await send_message(chat_id,
-                                   f"{get_crew_role_by_num(int(player['user_role']))} {player['user_name']} погиб 😵")
+                                   f"{get_role_name_by_num(int(player['user_role']))} {player['user_name']} погиб 😵")

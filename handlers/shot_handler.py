@@ -8,7 +8,7 @@ from aiogram.types import Chat, Message
 from bot.bot_data import bot
 from bot.game_functions import destroy_cannon, destroy_engine, destroy_fuel_tank, fire_func
 from bot.messages import send_message
-from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned, damage_all_crew
+from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned, damage_all_crew, get_user_by_id
 from utils.util import clamp
 
 router = Router()
@@ -76,6 +76,10 @@ async def shot_command(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not await can_proceed(message):
         return
+    role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
+    if role != 3 or role != 1:
+        await send_message(chat_id, "⚠️ Только стрелок или капитан может стрелять из орудий")
+        return
     if all_ships[chat_id]['cannon_overheated']:
         await message.answer("⚠️ Перегрев орудия! Попробуйте через пару секунд.")
         return
@@ -83,12 +87,14 @@ async def shot_command(message: Message, command: CommandObject):
         await message.answer("⚠️ У нас нет снарядов!\nСоздайте их в меню создания (/создание)")
         return
     all_ships[chat_id]['cannon_overheated'] = True
-    if command.args == "корабль" or command.args == "Корабль":
+    if command.args == "корабль" or command.args == "Корабль" or command.args == "к":
         # Симуляция выстрела в корабль
         if all_ships[chat_id]['connected_chat'] == 'null':
             await message.answer("⚠️ Не получилось выстрелить.\nУстановите связь, используя команду /связь")
             return
-        value = 0.7 if not all_ships[chat_id]['cannon_damaged'] else 0.9
+        value = 0.6 if not all_ships[chat_id]['cannon_damaged'] else 0.8
+        if role == 1:
+            value += 0.1
 
         all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
         if random.random() < value:
@@ -101,6 +107,8 @@ async def shot_command(message: Message, command: CommandObject):
             return
         # Симуляция выстрела в пришельцев
         value = 0.5 if not all_ships[chat_id]['cannon_damaged'] else 0.75
+        if role == 1:
+            value += 0.1
 
         all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
         if random.random() < value:

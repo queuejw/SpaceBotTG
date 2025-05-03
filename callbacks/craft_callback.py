@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery
 
 from bot.messages import delete_message, send_message
 from bot.save_game import check_data
-from bot.shared import is_chat_active, exist_user_by_id, all_ships
+from bot.shared import is_chat_active, exist_user_by_id, all_ships, get_user_by_id
 
 router = Router()
 
@@ -20,6 +20,10 @@ async def craft_callback(callback: CallbackQuery):
         return
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")
+        return
+    role = int(get_user_by_id(chat_id, callback.from_user.id)['user_role'])
+    if role != 2 or role != 1:
+        await callback.answer("⚠️ Только инженер или капитан может создавать предметы")
         return
     if callback.data == "craft_exit":
         print("Отмена создания предметов")
