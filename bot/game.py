@@ -79,7 +79,7 @@ async def meteorite(chat_id: int):
         await asyncio.sleep(1)
     if not meteorite_fall_active:
         return
-    await send_message(chat_id, f"☄️❌ Столкновение с метеоритом!")
+    await send_message(chat_id, f"☄️❌ Столкновение с метеоритом! 💥")
     await destroy_engine(chat_id, 0.75)
     await destroy_fuel_tank(chat_id, 0.75)
     await destroy_cannon(chat_id, 0.75)
@@ -104,13 +104,25 @@ async def game_loop_events(chat_id: int):
                 value = random.randint(50, 150)
                 all_ships[chat_id]["resources"] += value
                 await send_message(chat_id, f"Мы нашли полезные ресурсы!\nПолучено {value} ресурсов")
+            if random.random() < 0.08:
+                # Буря
+                text = "Буря на планете!\n"
+                if all_ships[chat_id]['connected_chat'] != 'null':
+                    all_ships[chat_id]['connected_chat'] = 'null'
+                    text = text + "Связь потеряна.\n"
+
+                value = random.randint(1, 5)
+                all_ships[chat_id]["ship_health"] = clamp(all_ships[chat_id]["ship_health"] - value, 0, 100)
+                text = text + f"Прочность корабля: {all_ships[chat_id]["ship_health"]}%"
+                await send_message(chat_id, text)
+
             if random.random() < 0.06:
                 # Аномалия на планете
                 if not int(all_ships[chat_id]["ship_health"]) == 0:
                     value = random.randint(1, 5)
                     all_ships[chat_id]["ship_health"] = clamp(all_ships[chat_id]["ship_health"] - value, 0, 100)
                     await send_message(chat_id,
-                                       f"Аномалия на планете. Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
+                                       f"✨⚡️ Аномалия на планете! Корабль поврежден!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
                     await destroy_engine(chat_id, 0.2)
             if random.random() < 0.04:
                 # Падение метеорита
@@ -122,7 +134,7 @@ async def game_loop_events(chat_id: int):
                 # Космический мусор
                 if not int(all_ships[chat_id]["ship_health"]) == 0:
                     value = random.randint(1, 3)
-                    all_ships[chat_id]["ship_health"] -= value
+                    all_ships[chat_id]["ship_health"] = clamp(all_ships[chat_id]["ship_health"] - value, 0, 100)
                     await send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
                     await destroy_engine(chat_id, 0.2)
@@ -131,6 +143,13 @@ async def game_loop_events(chat_id: int):
                 all_ships[chat_id]["distance"] = 0
                 all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
                 await send_message(chat_id, f"Космическая аномалия!\nМы сбились с курса")
+            if random.random() < 0.001:
+                # Столкновение с астероидом
+                value = random.randint(1, 20)
+                all_ships[chat_id]["ship_health"] = clamp(all_ships[chat_id]["ship_health"] - value, 0, 100)
+                damage_all_crew(chat_id, 10, 30)
+                await send_message(chat_id,
+                                   f"💥 Столкновение с астероидом! 💥\nЭкипаж получил ранения, прочность корабля: {all_ships[chat_id]["ship_health"]}%")
         # Здесь могут быть универсальные события
         if random.random() < 0.01 and not all_ships[chat_id]["alien_attack"]:
             # Атака пришельцев

@@ -7,6 +7,7 @@ from bot.bot_data import bot
 from bot.messages import send_message
 from bot.shared import is_chat_active, all_ships, exist_user_by_id
 from utils.crew import get_default_crew
+from utils.roles import get_normal_role, get_role_name_by_num
 
 router = Router()
 
@@ -56,9 +57,17 @@ async def add_user(message: Message, command: CommandObject):
         await send_message(chat_id, "Не получилось отправить команду\nВы не указали ID участника⚠️")
         return
     try:
-        user = await bot.get_chat_member(chat_id, int(command.args))
-        if add_user_to_white_list(int(command.args), chat_id, user.user.first_name, 0):
-            await send_message(chat_id, f"Успешно! {user.user.first_name} теперь член экипажа корабля. ✅")
+        args = command.args.split()
+        user_id = int(args[0])
+        role = 0
+        if len(args) > 1:
+            role = get_normal_role(args[1])
+
+        user = await bot.get_chat_member(chat_id, user_id)
+
+        if add_user_to_white_list(user_id, chat_id, user.user.first_name, role):
+            role_name = get_role_name_by_num(role)
+            await send_message(chat_id, f"Успешно! {user.user.first_name} теперь {role_name} корабля. ✅")
         else:
             await send_message(chat_id, "Не получилось добавить нового игрока ⚠️")
     except ValueError:
