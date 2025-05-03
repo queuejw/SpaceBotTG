@@ -9,7 +9,7 @@ from aiogram.types import Message
 from bot.bot_data import bot
 from bot.config import PLANETS
 from bot.messages import send_message
-from bot.shared import all_ships, is_chat_active, can_proceed
+from bot.shared import all_ships, is_chat_active, can_proceed, get_user_by_id
 
 router = Router()
 
@@ -58,6 +58,10 @@ async def fly(chat_id: int, planet_name: str):
 async def fly_command(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not await can_proceed(message):
+        return
+    role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
+    if role != 4 and role != 1:
+        await send_message(chat_id, "⚠️ Только пилот или капитан может управлять кораблём")
         return
     # Если аргументов нет, то летим на ближайшую (следующую) планету
     name = command.args
@@ -114,5 +118,9 @@ async def leave_planet(chat_id: int):
 async def leave_planet_command(message: Message):
     chat_id = message.chat.id
     if not await can_proceed(message):
+        return
+    role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
+    if role != 4 and role != 1:
+        await send_message(chat_id, "⚠️ Только пилот или капитан может управлять кораблём")
         return
     await leave_planet(chat_id)

@@ -12,6 +12,9 @@ def get_normal_role(value: str) -> int:
         case "3" | "Стрелок" | "стрелок":
             print("Стрелок")
             return 3
+        case "4" | "Пилот" | "пилот":
+            print("Пилот")
+            return 4
         case _:
             print("Не удалось найти роль, возвращаем -1")
             return -1
@@ -25,5 +28,7 @@ def get_role_name_by_num(value: int) -> str:
             return "Инженер"
         case 3:
             return "Стрелок"
+        case 4:
+            return "Пилот"
         case _:
             return "Член экипажа"

@@ -24,7 +24,7 @@ async def fire_callback(callback: CallbackQuery):
         await callback.answer("Вы не член экипажа")
         return
     role = int(get_user_by_id(chat_id, callback.from_user.id)['user_role'])
-    if role != 2 or role != 1:
+    if role != 2 and role != 1:
         await callback.answer("⚠️ Только инженер или капитан может тушить пожар")
         return
     if not all_ships[chat_id]["fire"]:
@@ -40,7 +40,8 @@ async def fire_callback(callback: CallbackQuery):
     await callback.answer("Тушим корабль ...")
     all_ships[chat_id]["blocked"] = True
     await send_message(chat_id, "Тушим корабль ... 🧯")
-    for _ in range(random.randint(4, 7)):
+    time = random.randint(4, 7) if not role == 1 else random.randint(6, 11)
+    for _ in range(time):
         await asyncio.sleep(1)
     if not is_chat_active(chat_id):
         print("Игра не активна")

@@ -22,7 +22,7 @@ async def craft_callback(callback: CallbackQuery):
         await callback.answer("Вы не член экипажа")
         return
     role = int(get_user_by_id(chat_id, callback.from_user.id)['user_role'])
-    if role != 2 or role != 1:
+    if role != 2 and role != 1:
         await callback.answer("⚠️ Только инженер или капитан может создавать предметы")
         return
     if callback.data == "craft_exit":

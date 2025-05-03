@@ -77,7 +77,7 @@ async def shot_command(message: Message, command: CommandObject):
     if not await can_proceed(message):
         return
     role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
-    if role != 3 or role != 1:
+    if role != 3 and role != 1:
         await send_message(chat_id, "⚠️ Только стрелок или капитан может стрелять из орудий")
         return
     if all_ships[chat_id]['cannon_overheated']:

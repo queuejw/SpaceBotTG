@@ -55,7 +55,7 @@ async def repair_ship(message: Message):
     if not await can_proceed(message):
         return
     role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
-    if role != 2 or role != 1:
+    if role != 2 and role != 1:
         await send_message(chat_id, "⚠️ Только инженер или капитан может ремонтировать корабль")
         return
     if all_ships[chat_id]['ship_health'] > 99 and not is_ship_damaged(all_ships[chat_id]):

@@ -16,7 +16,7 @@ async def craft(message: Message):
         return
     chat_id = message.chat.id
     role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
-    if role != 2 or role != 1:
+    if role != 2 and role != 1:
         await send_message(chat_id, "⚠️ Только инженер или капитан может создавать предметы")
         return
     await message.answer("Выберите предмет для создания 🛠",
