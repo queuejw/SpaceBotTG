@@ -18,7 +18,6 @@ def get_random_crew(data: list, captain: dict) -> dict:
 
 # Проверка здоровья
 async def check_all_crew(chat_id: int):
-    print(all_ships[chat_id]['crew'])
     for player in all_ships[chat_id]['crew']:
         if player['user_health'] < 1:
             print("игрок умер")

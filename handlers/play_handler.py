@@ -5,7 +5,7 @@ from aiogram.filters import Command
 from aiogram.types import Message
 
 from bot import chat_utils
-from bot.game import game_loop, game_loop_events, game_loop_planet_change
+from bot.game import game_loop, game_loop_events, game_loop_planet_change, cannon_loop
 from bot.messages import send_message
 from bot.shared import all_ships, is_chat_banned, is_chat_active
 from utils.crew import get_default_crew
@@ -38,6 +38,13 @@ def create_new_ship(message: Message):
     chat_utils.save_chat_state(chat_id, all_ships[chat_id])
 
 
+def create_tasks(chat_id: int):
+    asyncio.create_task(game_loop(chat_id))
+    asyncio.create_task(game_loop_planet_change(chat_id))
+    asyncio.create_task(game_loop_events(chat_id))
+    asyncio.create_task(cannon_loop(chat_id))
+
+
 # Создание корабля для чата
 @router.message(Command("играть"))
 async def play(message: Message):
@@ -52,9 +59,7 @@ async def play(message: Message):
         return
     # Создаем корабль для этого чата
     create_new_ship(message)
-    asyncio.create_task(game_loop(chat_id))
-    asyncio.create_task(game_loop_planet_change(chat_id))
-    asyncio.create_task(game_loop_events(chat_id))
+    create_tasks(chat_id)
     text = (
         "🚀Игра началась!\n"
         "Введите команду /помощь , чтобы узнать все команды бота.\n"

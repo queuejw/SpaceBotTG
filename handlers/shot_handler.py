@@ -13,6 +13,8 @@ from utils.util import clamp
 
 router = Router()
 
+overheated = False
+
 
 # Случайный текст для неудачного выстрела
 def random_bad_shot_text() -> str:
@@ -80,13 +82,15 @@ async def shot_command(message: Message, command: CommandObject):
     if role != 3 and role != 1:
         await send_message(chat_id, "⚠️ Только стрелок или капитан может стрелять из орудий")
         return
+    global overheated
     if all_ships[chat_id]['cannon_overheated']:
-        await message.answer("⚠️ Перегрев орудия! Попробуйте через пару секунд.")
+        if not overheated:
+            await message.answer("⚠️ Перегрев орудия! Попробуйте через пару секунд.")
+        overheated = True
         return
     if int(all_ships[chat_id]['bullets']) < 1:
         await message.answer("⚠️ У нас нет снарядов!\nСоздайте их в меню создания (/создание)")
         return
-    all_ships[chat_id]['cannon_overheated'] = True
     if command.args == "корабль" or command.args == "Корабль" or command.args == "к":
         # Симуляция выстрела в корабль
         if all_ships[chat_id]['connected_chat'] == 'null':
@@ -97,6 +101,9 @@ async def shot_command(message: Message, command: CommandObject):
             value += 0.1
 
         all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
+        all_ships[chat_id]['cannon_overheated'] = True
+        overheated = False
+
         if random.random() < value:
             await message.answer(f"{random_bad_shot_text()} ⚠️")
         else:
@@ -111,6 +118,8 @@ async def shot_command(message: Message, command: CommandObject):
             value += 0.1
 
         all_ships[chat_id]['bullets'] = clamp(int(all_ships[chat_id]['bullets']) - 1, 0, 128)
+        all_ships[chat_id]['cannon_overheated'] = True
+
         if random.random() < value:
             await message.answer(f"{random_bad_shot_text()} ⚠️")
         else:

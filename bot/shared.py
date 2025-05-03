@@ -129,6 +129,7 @@ async def can_proceed(message: Message) -> bool:
 def is_crew_alive(chat_id: int) -> bool:
     return get_total_crew_health(chat_id) > 1
 
+
 # Функция для получения текста сообщения экипажа
 def get_crew_text(chat_id) -> str:
     text = f"Экипаж корабля {all_ships[chat_id]['ship_name']}:\n\n"

@@ -10,6 +10,7 @@ def get_default_ship() -> dict:
         'on_planet': False,  # Находится ли корабль на планете?
         'air_leaking': False,  # Утечка воздуха
         'fire': False,  # Пожар на корабле
+        'meteorite_fall': False,  # Падает ли метеорит на планету?
         'alien_attack': False,  # Атакуют ли пришельцы?
         'engine_damaged': False,  # Поврежден ли двигатель?
         'fuel_tank_damaged': False,  # Поврежден ли топливный бак?

@@ -97,6 +97,8 @@ async def leave_planet(chat_id: int):
     # обновляем данные и отменяем блокировку действий
     all_ships[chat_id]["on_planet"] = False
     all_ships[chat_id]["blocked"] = False
+    if all_ships[chat_id]['meteorite_fall']:
+        all_ships[chat_id]['meteorite_fall'] = False
     all_ships[chat_id]["previous_planet_name"] = all_ships[chat_id]["planet_name"]
     all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
     await send_message(chat_id, f"Мы покинули планету {all_ships[chat_id]["previous_planet_name"]}")

@@ -17,6 +17,9 @@ async def set_role(message: Message, command: CommandObject):
     chat_id = message.chat.id
     if not await can_proceed(message):
         return
+    if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
+        await send_message(chat_id, "Только капитан может изменять роли.")
+        return
     if type(command.args) == NoneType:
         print("NoneType, невозможно изменить роль")
         await send_message(chat_id, "⚠️ Укажите ID или Имя игрока, а также его новую роль.")

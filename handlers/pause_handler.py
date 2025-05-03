@@ -16,7 +16,7 @@ async def pause_game(message: Message):
         return
     # Только капитан может сделать это
     if message.from_user.id != all_ships[chat_id]['crew'][0]['user_id']:
-        await send_message(chat_id, "Только капитан может остановить игру.")
+        await send_message(chat_id, "ℹ️ Только капитан может остановить игру.")
         return
     check_and_save_data(all_ships[chat_id], chat_id)
     remove_chat_from_all_ships(chat_id)
