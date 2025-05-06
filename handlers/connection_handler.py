@@ -10,6 +10,7 @@ from aiogram.types import Message
 from bot.bot_data import bot
 from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned
+from utils.check_role import check_role
 
 router = Router()
 
@@ -29,13 +30,13 @@ def get_random_chat_id(my_chat_id: int):
 
 
 # Соединение с кораблем
-async def connection(random_chat_id: int, chat_id: int, my_chat_title, args):
+async def connection(random_chat_id: int, chat_id: int, my_chat_title, args, user_id: int):
     if random_chat_id == chat_id:
         await send_message(chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
         return
     if not is_chat_active(random_chat_id):
         print("чат не активен, попытка соединиться ещё раз")
-        await connect(chat_id, my_chat_title, args)
+        await connect(chat_id, my_chat_title, args, user_id)
         return
     if all_ships[random_chat_id]['connected_chat'] != 'null':
         await send_message(chat_id,
@@ -65,24 +66,36 @@ async def connection(random_chat_id: int, chat_id: int, my_chat_title, args):
                            f"Мы поймали связь с кораблём {all_ships[chat_id]['ship_name']}\nЧтобы отключиться, введите /!связь")
 
 
+# Сбрасывает параметры соединения с другим кораблем
+def reset_connection(chat_id: int):
+    all_ships[chat_id]['connected_chat'] = 'null'
+    all_ships[chat_id]['blocked'] = False
+
+
 # Подготовка к соединению с кораблем, либо отправка сообщения
-async def connect(chat_id: int, title, args):
+async def connect(chat_id: int, title, args, user_id: int):
     try:
         if type(args) == NoneType:
             # Связываемся со случайным кораблем
             if all_ships[chat_id]['connected_chat'] == 'null':
+                if check_role(5, chat_id, user_id):
+                    await send_message(chat_id, "⚠️ Только связист или капитан может установить соединение.")
+                    return
                 random_chat_id = get_random_chat_id(chat_id)
                 if type(random_chat_id) == NoneType:
                     print("Не удалось подключиться, пробую ещё раз")
-                    await connect(chat_id, title, args)
+                    await connect(chat_id, title, args, user_id)
                     return
-                await connection(random_chat_id, chat_id, title, args)
+                await connection(random_chat_id, chat_id, title, args, user_id)
 
             else:
                 await send_message(chat_id,
                                    f"Уже установлена связь с каким-то кораблём.\nЧтобы отключиться, введите /!связь")
         else:
             if all_ships[chat_id]['connected_chat'] == 'null':
+                if check_role(5, chat_id, user_id):
+                    await send_message(chat_id, "⚠️ Только связист или капитан может установить соединение.")
+                    return
                 ships_f = 0
                 ships_f_id = -1
                 ships = list(all_ships.items())
@@ -94,7 +107,7 @@ async def connect(chat_id: int, title, args):
                     await send_message(chat_id,
                                        "Не получилось подключиться к выбранному кораблю ⚠️")
                 else:
-                    await connection(ships_f_id, chat_id, title, args)
+                    await connection(ships_f_id, chat_id, title, args, user_id)
 
 
             # или передаем сообщения
@@ -102,23 +115,20 @@ async def connect(chat_id: int, title, args):
                 all_ships[chat_id]['blocked'] = True
                 connected_chat_id = int(all_ships[chat_id]['connected_chat'])
                 if connected_chat_id == chat_id:
-                    all_ships[chat_id]['blocked'] = False
+                    reset_connection(chat_id)
                     await send_message(connected_chat_id, f"Не удалось найти ближайший корабль. Попробуйте позже.")
                     return
                 if is_chat_banned(connected_chat_id):
-                    all_ships[chat_id]['connected_chat'] = 'null'
-                    all_ships[chat_id]['blocked'] = False
+                    reset_connection(chat_id)
                     await send_message(chat_id,
                                        f"Не удалось соединиться с кораблём. Выбранный корабль был заблокирован.")
                     return
                 if not is_chat_active(connected_chat_id):
-                    all_ships[chat_id]['connected_chat'] = 'null'
-                    all_ships[chat_id]['blocked'] = False
+                    reset_connection(chat_id)
                     await send_message(chat_id, f"Не удалось соединиться с кораблём. Соединение прервано")
                     return
                 if all_ships[connected_chat_id]['connected_chat'] != f'{chat_id}':
-                    all_ships[chat_id]['connected_chat'] = 'null'
-                    all_ships[chat_id]['blocked'] = False
+                    reset_connection(chat_id)
                     await send_message(chat_id,
                                        f"Не удалось подключиться к выбранному кораблю. Попробуйте установить связь ещё раз.")
                     return
@@ -140,10 +150,9 @@ async def connect(chat_id: int, title, args):
 @router.message(Command("связь", "с"))
 async def connect_to_other_ship(message: Message, command: CommandObject):
     chat_id = message.chat.id
-    print(f"Чат {chat_id} пытается установить связь")
     if not await can_proceed(message):
         return
-    await connect(chat_id, message.chat.title, command.args)
+    await connect(chat_id, message.chat.title, command.args, message.from_user.id)
 
 
 @router.message(Command("!связь", "!с"))

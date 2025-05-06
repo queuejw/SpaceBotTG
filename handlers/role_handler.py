@@ -54,6 +54,13 @@ async def set_role(message: Message, command: CommandObject):
 
     player: dict = get_user_by_id(chat_id, int(user_id_name)) if is_it_user_id else get_user_by_name(chat_id,
                                                                                                      user_id_name)
+
+    if player == all_ships[chat_id]['crew'][0]:
+        print("Капитан хочет изменить себя. Сброс.")
+        await send_message(chat_id,
+                           "❌ Капитан не может изменить свою роль, но Вы можете передать роль Капитана другому участнику.")
+        return
+
     data: list = all_ships[chat_id]['crew']
 
     old_role_name = get_role_name_by_num(int(player['user_role']))

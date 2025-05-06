@@ -9,6 +9,7 @@ from bot.bot_data import bot
 from bot.game_functions import destroy_cannon, destroy_engine, destroy_fuel_tank, fire_func
 from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, can_proceed, is_chat_banned, damage_all_crew, get_user_by_id
+from utils.check_role import check_role
 from utils.util import clamp
 
 router = Router()
@@ -79,7 +80,7 @@ async def shot_command(message: Message, command: CommandObject):
     if not await can_proceed(message):
         return
     role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
-    if role != 3 and role != 1:
+    if check_role(3, chat_id, message.from_user.id):
         await send_message(chat_id, "⚠️ Только стрелок или капитан может стрелять из орудий")
         return
     global overheated

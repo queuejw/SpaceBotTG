@@ -8,6 +8,7 @@ from aiogram.types import Message
 from bot.messages import send_message
 from bot.save_game import check_data
 from bot.shared import all_ships, can_proceed, get_user_by_id
+from utils.check_role import check_role
 
 router = Router()
 
@@ -54,12 +55,12 @@ async def repair_ship(message: Message):
     chat_id = message.chat.id
     if not await can_proceed(message):
         return
-    role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
-    if role != 2 and role != 1:
+    user_role = int(get_user_by_id(chat_id, message.from_user.id)['user_role'])
+    if check_role(2, chat_id, message.from_user.id):
         await send_message(chat_id, "⚠️ Только инженер или капитан может ремонтировать корабль")
         return
     if all_ships[chat_id]['ship_health'] > 99 and not is_ship_damaged(all_ships[chat_id]):
         await message.answer("Ремонт не требуется.")
         return
-    time = random.randint(5, 7) if role != 1 else random.randint(8, 15)
+    time = random.randint(5, 7) if user_role != 1 else random.randint(8, 15)
     await repair(chat_id, time)
