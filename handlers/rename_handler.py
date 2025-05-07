@@ -4,17 +4,9 @@ from aiogram.types import Message
 
 from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, is_actions_blocked
+from utils.check_ship_name import check_name
 
 router = Router()
-
-
-# Проверка доступности названия корабля
-def check_name(new_name: str) -> bool:
-    ships = list(all_ships.items())
-    for ship in ships:
-        if ship[1]['ship_name'] == new_name:
-            return False
-    return True
 
 
 # Команда для переименования корабля

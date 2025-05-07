@@ -68,6 +68,7 @@ async def play(message: Message):
     if not all_ships[chat_id]['default']:
         text = text + "ℹ️ Загружено последнее сохранение"
     else:
+        text = text + f"\nНазвание Вашего корабля: {all_ships[chat_id]['ship_name']}"
         all_ships[chat_id]['default'] = False
 
     await send_message(chat_id, text)

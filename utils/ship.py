@@ -1,6 +1,8 @@
 # Стандартные параметры корабля
 import random
 
+from utils.ship_name import create_random_ship_name
+
 
 def get_default_ship() -> dict:
     return {
@@ -19,7 +21,7 @@ def get_default_ship() -> dict:
         'planet_name': "Земля",  # Название текущей планеты
         'next_planet_name': "Луна",  # Название следующей планеты
         'previous_planet_name': "Земля",  # Название предыдущей планеты
-        'ship_name': "Марс-06",  # Название корабля
+        'ship_name': create_random_ship_name(),  # Название корабля
         'connected_chat': 'null',  # Id чата, с которым в данный момент идёт связь. Если null, значит связи нет.
         'distance': 0,  # Расстояние от планеты
         'ship_fuel': 100,  # Уровень топлива (от 0 до 100)
