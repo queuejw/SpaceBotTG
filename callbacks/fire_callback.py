@@ -19,7 +19,7 @@ async def fire_callback(callback: CallbackQuery):
     chat_id = callback.message.chat.id
     if not is_chat_active(chat_id):
         print("Игра не активна")
-        await callback.answer()
+        await callback.answer("Игра не активна")
         return
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")

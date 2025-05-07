@@ -1,11 +1,10 @@
 # Текст компьютера
 from aiogram import Router, F
-from aiogram.exceptions import TelegramBadRequest, TelegramRetryAfter
 from aiogram.types import CallbackQuery
 
-from bot.bot_data import bot
 from bot.shared import is_chat_active, exist_user_by_id
 from bot.text import get_computer_text
+from utils.edit_bot_message import edit_text
 from utils.keyboards import get_computer_inline_keyboard
 
 router = Router()
@@ -22,21 +21,9 @@ async def update_computer_text(callback: CallbackQuery):
     if not exist_user_by_id(chat_id, callback.from_user.id):
         await callback.answer("Вы не член экипажа")
         return
-    new_text = get_computer_text(chat_id)
-    if callback.message.text != new_text:
-        try:
-            await bot.edit_message_text(chat_id=chat_id,
-                                        message_id=callback.message.message_id,
-                                        text=new_text,
-                                        reply_markup=get_computer_inline_keyboard())
-            print(f"Текст компьютера в чате {chat_id} успешно обновлен")
-            await callback.answer("Обновлено")
-        except TelegramBadRequest:
-            print("Ошибка при изменении сообщения компьютера: TelegramBadRequest")
-            await callback.answer("Ошибка")
-        except TelegramRetryAfter:
-            print("Ошибка при изменении сообщения компьютера: TelegramRetryAfter")
-            await callback.answer("Ошибка")
+    if edit_text(chat_id, callback.message.message_id, get_computer_text(chat_id), callback.message.text,
+                 get_computer_inline_keyboard()):
+        await callback.answer("Обновлено")
     else:
         print(f"Текст компьютера в чате {chat_id} совпадает с прошлым")
         await callback.answer("Уже обновлено.")
