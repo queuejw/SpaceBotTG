@@ -5,7 +5,8 @@ from aiogram.types import Message
 
 from bot.bot_data import bot
 from bot.messages import send_message
-from bot.shared import is_chat_active, all_ships, exist_user_by_id
+from bot.shared import is_chat_active, all_ships, exist_user_by_id, can_proceed
+from bot.text import get_specific_crew_text
 from utils.crew import get_default_crew
 from utils.roles import get_normal_role, get_role_name_by_num
 
@@ -102,3 +103,13 @@ async def del_user(message: Message, command: CommandObject):
 
     else:
         await send_message(chat_id, "Не удалось удалить члена экипажа ⚠️\nПерепроверьте ID")
+
+
+# Выводит информацию об игроке, который ввел эту команду
+@router.message(Command("я"))
+async def about_me(message: Message):
+    chat_id = message.chat.id
+    if not await can_proceed(message):
+        return
+    text = get_specific_crew_text(chat_id, message.from_user.id)
+    await send_message(chat_id, text)

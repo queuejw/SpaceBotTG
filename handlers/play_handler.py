@@ -46,7 +46,7 @@ def create_tasks(chat_id: int):
 
 
 # Создание корабля для чата
-@router.message(Command("играть"))
+@router.message(Command("играть", "play"))
 async def play(message: Message):
     chat_id = message.chat.id
     if is_chat_banned(chat_id):
