@@ -14,6 +14,8 @@ from utils.check_role import check_role
 
 router = Router()
 
+random_symbols = ["#", "!", "@", "$", "%", "&", "*"]
+
 
 # Функция для получения случайного chat id
 def get_random_chat_id(my_chat_id: int):
@@ -70,6 +72,22 @@ async def connection(random_chat_id: int, chat_id: int, my_chat_title, args, use
 def reset_connection(chat_id: int):
     all_ships[chat_id]['connected_chat'] = 'null'
     all_ships[chat_id]['blocked'] = False
+
+
+def create_corrupted_message(text: list, is_radio_damaged: bool) -> str:
+    final_text = ""
+    for i in text:
+        if random.random() < 0.25 or is_radio_damaged:
+            sym = random.choice(random_symbols)
+            if is_radio_damaged:
+                for _ in range(random.randint(1, 4)):
+                    sym = sym + random.choice(random_symbols)
+            i = i + sym
+            if random.random() < 0.3:
+                m = 2 if not is_radio_damaged else random.randint(2, 4)
+                i = i * m
+        final_text = final_text + f" {i}"
+    return final_text
 
 
 # Подготовка к соединению с кораблем, либо отправка сообщения
@@ -133,8 +151,16 @@ async def connect(chat_id: int, title, args, user_id: int):
                                        f"Не удалось подключиться к выбранному кораблю. Попробуйте установить связь ещё раз.")
                     return
                 try:
-                    await send_message(connected_chat_id, f"Получено сообщение: {args}")
-                    await send_message(chat_id, f"Отправлено сообщение: {args}")
+                    is_radio_damaged: bool = all_ships[chat_id]['radio_damaged']
+                    if random.random() < 0.75 or is_radio_damaged:
+                        corrupted_text = create_corrupted_message(args.split(), is_radio_damaged)
+
+                        await send_message(connected_chat_id,
+                                           f"Проблемы со связью!\nПолучено сообщение: {corrupted_text}")
+                        await send_message(chat_id, f"Проблемы со связью!\nОтправлено сообщение: {args}")
+                    else:
+                        await send_message(connected_chat_id, f"Получено сообщение: {args}")
+                        await send_message(chat_id, f"Отправлено сообщение: {args}")
                 except TelegramRetryAfter:
                     print("Наверное Too Many Requests. ")
                     all_ships[chat_id]['blocked'] = False

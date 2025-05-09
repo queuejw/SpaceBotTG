@@ -40,6 +40,7 @@ async def repair(chat_id: int, sec: int):
     all_ships[chat_id]['fuel_tank_damaged'] = False
     all_ships[chat_id]['cannon_damaged'] = False
     all_ships[chat_id]['air_leaking'] = False
+    all_ships[chat_id]["radio_damaged"] = False
     check_data(all_ships[chat_id], chat_id)
     await send_message(chat_id, "Ремонт завершён")
 

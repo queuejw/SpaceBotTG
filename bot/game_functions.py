@@ -49,6 +49,7 @@ async def fire_func(chat_id: int):
 
         await destroy_engine(chat_id, 0.05)
         await destroy_fuel_tank(chat_id, 0.05)
+        await destroy_radio(chat_id, 0.05)
 
         check_data(all_ships[chat_id], chat_id)
 
@@ -81,6 +82,16 @@ async def destroy_cannon(chat_id: int, chance: float) -> bool:
     if random.random() < chance and not all_ships[chat_id]["cannon_damaged"]:
         all_ships[chat_id]["cannon_damaged"] = True
         await send_message(chat_id, "Орудие повреждено, точность стрельбы снижена! ⚠️")
+        return True
+    return False
+
+
+# Функция для повреждения радио (связи)
+async def destroy_radio(chat_id: int, chance: float) -> bool:
+    # Если повезет, то ломаем орудие
+    if random.random() < chance and not all_ships[chat_id]["radio_damaged"]:
+        all_ships[chat_id]["radio_damaged"] = True
+        await send_message(chat_id, "Радиостанция повреждена, качество связи снижено! ⚠️")
         return True
     return False
 

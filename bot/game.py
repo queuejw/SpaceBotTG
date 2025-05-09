@@ -6,7 +6,7 @@ from types import NoneType
 from bot.bot_data import bot
 from bot.check_crew import check_all_crew
 from bot.config import PLANETS
-from bot.game_functions import fire_func, destroy_engine, destroy_fuel_tank, destroy_cannon, stop_game
+from bot.game_functions import fire_func, destroy_engine, destroy_fuel_tank, destroy_cannon, stop_game, destroy_radio
 from bot.messages import send_message
 from bot.save_game import check_and_save_data, check_data
 from bot.shared import is_chat_active, all_ships, damage_all_crew, is_crew_alive
@@ -60,6 +60,7 @@ async def alien_attack(chat_id: int):
             await destroy_engine(chat_id, 0.1)
             await destroy_fuel_tank(chat_id, 0.1)
             await destroy_cannon(chat_id, 0.1)
+            await destroy_radio(chat_id, 0.1)
 
         await asyncio.sleep(5)
 
@@ -83,6 +84,7 @@ async def meteorite(chat_id: int):
     await destroy_engine(chat_id, 0.75)
     await destroy_fuel_tank(chat_id, 0.75)
     await destroy_cannon(chat_id, 0.75)
+    await destroy_radio(chat_id, 0.75)
     damage_all_crew(chat_id, 10, 30)
     all_ships[chat_id]["ship_health"] -= random.randint(10, 30)
     check_data(all_ships[chat_id], chat_id)
@@ -138,6 +140,7 @@ async def game_loop_events(chat_id: int):
                     await send_message(chat_id,
                                        f"Мы столкнулись с космическим мусором!\nПрочность корабля: {all_ships[chat_id]["ship_health"]}%")
                     await destroy_engine(chat_id, 0.2)
+                    await destroy_radio(chat_id, 0.1)
             if random.random() < 0.02:
                 # Космическая аномалия
                 all_ships[chat_id]["distance"] = 0

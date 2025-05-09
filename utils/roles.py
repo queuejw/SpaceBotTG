@@ -17,7 +17,7 @@ def get_normal_role(value: str) -> int:
             return 4
         case "5" | "Связист" | "связист":
             print("Связист")
-            return 4
+            return 5
         case _:
             print("Не удалось найти роль, возвращаем -1")
             return -1
