@@ -82,10 +82,10 @@ async def shot_command(message: Message, command: CommandObject):
         await send_message(chat_id, "⚠️ Только стрелок или капитан может стрелять из орудий")
         return
     if all_ships[chat_id]['cannon_overheated']:
-        await message.answer("⚠️ Перегрев орудия! Попробуйте через пару секунд.")
+        await send_message(chat_id, "⚠️ Перегрев орудия! Попробуйте через пару секунд.")
         return
     if int(all_ships[chat_id]['bullets']) < 1:
-        await message.answer("⚠️ У нас нет снарядов!\nСоздайте их в меню создания (/создание)")
+        await send_message(chat_id, "⚠️ У нас нет снарядов!\nСоздайте их в меню создания (/создание)")
         return
     if command.args == "корабль" or command.args == "Корабль" or command.args == "к" or command.args == "К":
         # Симуляция выстрела в корабль

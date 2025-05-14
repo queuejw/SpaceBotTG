@@ -1,15 +1,14 @@
 # Код игры, который выполняется всё время, пока активна игра или действует какое-то событие
 import asyncio
 import random
-from types import NoneType
 
-from bot.bot_data import bot
 from bot.check_crew import check_all_crew
 from bot.config import PLANETS
 from bot.game_functions import fire_func, destroy_engine, destroy_fuel_tank, destroy_cannon, stop_game, destroy_radio
 from bot.messages import send_message
 from bot.save_game import check_and_save_data, check_data
 from bot.shared import is_chat_active, all_ships, damage_all_crew, is_crew_alive
+from utils.connection_utils import send_notification_to_connected_chat
 from utils.util import clamp
 
 
@@ -31,16 +30,7 @@ async def alien_attack(chat_id: int):
         return
     all_ships[chat_id]['alien_attack'] = True
     await send_message(chat_id, "⚠️ Нас атакуют пришельцы! 👽🛸\nОтбейте атаку при помощи команды:\n/выстрел")
-    if all_ships[chat_id]['connected_chat'] != 'null':
-        c_chat_id = int(all_ships[chat_id]['connected_chat'])
-        if is_chat_active(c_chat_id):
-            chat = await bot.get_chat(chat_id)
-            if type(chat.title) != NoneType:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} атакуют пришельцы!")
-            else:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} атакуют пришельцы!")
+    await send_notification_to_connected_chat("атакуют пришельцы!", chat_id)
     while is_chat_active(chat_id) and all_ships[chat_id]['alien_attack']:
         if not all_ships[chat_id]['alien_attack']:
             return

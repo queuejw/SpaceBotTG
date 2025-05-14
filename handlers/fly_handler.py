@@ -1,16 +1,15 @@
 import asyncio
 import random
-from types import NoneType
 
 from aiogram import Router
 from aiogram.filters import Command, CommandObject
 from aiogram.types import Message
 
-from bot.bot_data import bot
 from bot.config import PLANETS
 from bot.messages import send_message
 from bot.shared import all_ships, is_chat_active, can_proceed
 from utils.check_role import check_role
+from utils.connection_utils import send_notification_to_connected_chat
 
 router = Router()
 
@@ -41,17 +40,7 @@ async def fly(chat_id: int, planet_name: str):
     all_ships[chat_id]["planet_name"] = planet_name
     all_ships[chat_id]["previous_planet_name"] = planet_name
     await send_message(chat_id, f"Успешная посадка на планету {planet_name} ")
-    if all_ships[chat_id]['connected_chat'] != 'null':
-        # Уведомляем соединенный чат о полете на планету
-        c_chat_id = int(all_ships[chat_id]['connected_chat'])
-        if is_chat_active(c_chat_id):
-            chat = await bot.get_chat(chat_id)
-            if type(chat.title) != NoneType:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} летит на планету {planet_name}!")
-            else:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} летит на планету {planet_name}!")
+    await send_notification_to_connected_chat(f"летит на планету {planet_name}", chat_id)
 
 
 # Команда для посадки, полета на планету
@@ -102,17 +91,7 @@ async def leave_planet(chat_id: int):
     all_ships[chat_id]["previous_planet_name"] = all_ships[chat_id]["planet_name"]
     all_ships[chat_id]["next_planet_name"] = random.choice(PLANETS)
     await send_message(chat_id, f"Мы покинули планету {all_ships[chat_id]["previous_planet_name"]}")
-    if all_ships[chat_id]['connected_chat'] != 'null':
-        # Уведомляем соединенный чат о полете на планету
-        c_chat_id = int(all_ships[chat_id]['connected_chat'])
-        if is_chat_active(c_chat_id):
-            chat = await bot.get_chat(chat_id)
-            if type(chat.title) != NoneType:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} чата {chat.title} покинул планету {all_ships[chat_id]["previous_planet_name"]}!")
-            else:
-                await send_message(c_chat_id,
-                                   f"Корабль {all_ships[chat_id]['ship_name']} покинул планету {all_ships[chat_id]["previous_planet_name"]}!")
+    await send_notification_to_connected_chat(f"покинул планету {all_ships[chat_id]["previous_planet_name"]}", chat_id)
 
 
 # Команда, чтобы покинуть планету

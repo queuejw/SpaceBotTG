@@ -1,6 +1,6 @@
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
-from aiogram.types import Message, FSInputFile
+from aiogram.types import Message
 
 from bot.messages import send_message
 from bot.shared import github_link
@@ -20,8 +20,7 @@ async def command_start_handler(message: Message):
         "Введи /играть , чтобы начать путешествие в мир космоса!🚀\n"
         "/инфо для информации о боте."
     )
-    image = FSInputFile("img/main.jpg")
-    await message.answer_photo(image, caption=text)
+    await send_message(message.chat.id, text)
 
 
 # Функция, которая вызывается командой /инфо
@@ -34,8 +33,7 @@ async def info(message: Message):
         "сделал @queuejw\n"
         f"подробная информация и исходный код бота: {github_link}"
     )
-    image = FSInputFile("img/main.jpg")
-    await message.answer_photo(image, caption=text)
+    await send_message(message.chat.id, text)
 
 
 # Функция, которая вызывается командой /помощь.
