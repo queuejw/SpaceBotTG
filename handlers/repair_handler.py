@@ -47,7 +47,8 @@ async def repair(chat_id: int, sec: int):
 
 # Функция для проверки корабля на наличие повреждений
 def is_ship_damaged(ship: dict) -> bool:
-    return ship['air_leaking'] or ship['engine_damaged'] or ship['fuel_tank_damaged'] or ship['cannon_damaged']
+    return ship['air_leaking'] or ship['engine_damaged'] or ship['fuel_tank_damaged'] or ship['cannon_damaged'] or ship[
+        'radio_damaged']
 
 
 # Ремонт корабля

@@ -10,5 +10,5 @@ from bot.launch import init
 # Запуск бота
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO, stream=sys.stdout)
-    asyncio.run(init())
     print(f"открытый космос бот запущен.")
+    asyncio.run(init())
